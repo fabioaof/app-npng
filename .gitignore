@@ -1,0 +1,15 @@
+# Backup local de migração Git (não versionar)
+.migration-backup/
+
+# Python / backend
+backend/.venv/
+backend/**/__pycache__/
+*.py[cod]
+*.egg-info/
+.pytest_cache/
+.mypy_cache/
+
+# Variáveis de ambiente locais (manter *.example versionado)
+.env
+.env.local
+backend/.env

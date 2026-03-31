@@ -1,0 +1,44 @@
+# API (FastAPI) + PostgreSQL
+# Uso na raiz do repo: docker compose up -d --build
+# API: http://127.0.0.1:8000/docs  |  Postgres: localhost:5432
+
+services:
+  db:
+    image: postgres:16-alpine
+    container_name: npng-postgres
+    environment:
+      POSTGRES_USER: npng
+      POSTGRES_PASSWORD: npng
+      POSTGRES_DB: npng
+    ports:
+      - "5432:5432"
+    volumes:
+      - npng_pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U npng -d npng"]
+      interval: 3s
+      timeout: 5s
+      retries: 10
+
+  api:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: npng-api
+    ports:
+      - "8000:8000"
+    environment:
+      DATABASE_URL: postgresql+psycopg://npng:npng@db:5432/npng
+      JWT_SECRET: ${JWT_SECRET:-dev-change-me-in-production}
+      CORS_ORIGINS: ${CORS_ORIGINS:-http://localhost:8090,http://127.0.0.1:8090,http://localhost:9000,http://127.0.0.1:9000}
+      PUBLIC_BASE_URL: ${PUBLIC_BASE_URL:-http://localhost:8000}
+      UPLOAD_DIR: /data/uploads
+    volumes:
+      - npng_uploads:/data/uploads
+    depends_on:
+      db:
+        condition: service_healthy
+
+volumes:
+  npng_pgdata:
+  npng_uploads:

@@ -1,0 +1,37 @@
+# Exemplo de site Nginx para NP-NG.
+# Copiar para /etc/nginx/sites-available/npng e ligar em sites-enabled.
+# Ajustar server_name, paths e certificados SSL (certbot).
+
+server {
+    listen 80;
+    listen [::]:80;
+    server_name app.seudominio.com;
+
+    root /opt/npng/frontend;
+    index index.html;
+
+    location /api/ {
+        proxy_pass http://127.0.0.1:8000/api/;
+        proxy_http_version 1.1;
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+    }
+
+    location /media/ {
+        proxy_pass http://127.0.0.1:8000/media/;
+        proxy_http_version 1.1;
+        proxy_set_header Host $host;
+    }
+
+    location /health {
+        proxy_pass http://127.0.0.1:8000/health;
+    }
+
+    location / {
+        try_files $uri $uri/ /index.html;
+    }
+}
+
+# Após certbot --nginx, o certificado será referenciado automaticamente num bloco ssl listen 443.
