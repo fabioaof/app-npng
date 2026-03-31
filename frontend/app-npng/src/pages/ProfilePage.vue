@@ -3,16 +3,27 @@
     <div class="app-page-inner" style="max-width: 520px">
       <div class="page-title">Perfil</div>
       <q-form @submit="onSave" class="q-gutter-md">
-        <div class="row justify-center q-mb-md" v-if="profile?.photo_url">
-          <q-avatar size="100px" round class="shadow-1">
-            <img style="object-fit: fill" :src="profile.photo_url" alt="Foto">
-          </q-avatar>
+        <div class="row justify-center q-mb-md" v-if="profile !== null">
+          <div class="profile-photo-uploader relative-position">
+            <q-avatar size="100px" round class="shadow-1">
+              <img
+                v-if="avatarSrc"
+                :src="avatarSrc"
+                alt="Foto"
+                style="object-fit: cover; width: 100%; height: 100%"
+              />
+              <q-icon v-else name="person" size="48px" />
+            </q-avatar>
+            <q-file
+              v-model="photoFile"
+              accept="image/*"
+              borderless
+              dense
+              hide-bottom-space
+              class="profile-photo-qfile absolute-full q-pa-none"
+            />
+          </div>
         </div>
-        <q-file v-model="photoFile" label="Alterar foto" outlined dense accept="image/*">
-          <template #prepend>
-            <q-icon name="attach_file" />
-          </template>
-        </q-file>
         <q-input v-model="fullName" label="Nome" outlined dense />
         <q-input v-model="birthDate" type="date" label="Data de nascimento" outlined dense stack-label />
         <q-input v-model.number="weightKg" type="number" label="Peso (kg)" outlined dense step="0.1" min="0" />
@@ -37,7 +48,7 @@
 </template>
 
 <script setup>
-import { ref, onMounted } from 'vue'
+import { ref, computed, watch, onMounted, onUnmounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { Notify } from 'quasar'
 import { useAuthStore } from 'src/stores/auth'
@@ -52,7 +63,28 @@ const birthDate = ref('')
 const weightKg = ref(null)
 const heightCm = ref(null)
 const photoFile = ref(null)
+const photoPreviewUrl = ref(null)
 const saving = ref(false)
+
+const avatarSrc = computed(() => photoPreviewUrl.value || profile.value?.photo_url || null)
+
+watch(photoFile, (val) => {
+  if (photoPreviewUrl.value) {
+    URL.revokeObjectURL(photoPreviewUrl.value)
+    photoPreviewUrl.value = null
+  }
+  const raw = val
+  const file = Array.isArray(raw) ? raw[0] : raw
+  if (file instanceof File) {
+    photoPreviewUrl.value = URL.createObjectURL(file)
+  }
+})
+
+onUnmounted(() => {
+  if (photoPreviewUrl.value) {
+    URL.revokeObjectURL(photoPreviewUrl.value)
+  }
+})
 
 async function load () {
   const { data } = await api.get('/profiles/me')
@@ -94,3 +126,25 @@ function onLogout () {
 
 onMounted(load)
 </script>
+
+<style scoped>
+.profile-photo-uploader {
+  width: 100px;
+  height: 100px;
+}
+
+.profile-photo-qfile {
+  opacity: 0;
+  z-index: 1;
+}
+
+.profile-photo-qfile :deep(.q-field__control) {
+  min-height: 100px;
+  height: 100px;
+  padding: 0;
+}
+
+.profile-photo-qfile :deep(.q-field__native) {
+  min-height: 100px;
+}
+</style>

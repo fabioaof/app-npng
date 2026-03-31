@@ -20,4 +20,5 @@ RUN mkdir -p /data/uploads
 
 EXPOSE 8000
 
-CMD ["sh", "-c", "alembic upgrade head && exec uvicorn app.main:app --host 0.0.0.0 --port 8000"]
+# --proxy-headers: URL esquema/host corretos por detrás de Nginx (X-Forwarded-*)
+CMD ["sh", "-c", "alembic upgrade head && exec uvicorn app.main:app --host 0.0.0.0 --port 8000 --proxy-headers"]

@@ -3,7 +3,7 @@ import uuid
 from pathlib import Path
 from typing import Annotated
 
-from fastapi import APIRouter, Depends, File, HTTPException, UploadFile, status
+from fastapi import APIRouter, Depends, File, HTTPException, Request, UploadFile, status
 from sqlalchemy.orm import Session
 
 from app.api.deps import ensure_can_access_user, get_current_user
@@ -19,10 +19,19 @@ MAX_PHOTO_BYTES = 5 * 1024 * 1024
 router = APIRouter(prefix="/profiles", tags=["profiles"])
 
 
-def profile_to_read(p: Profile) -> ProfileRead:
+def _media_base_url(request: Request) -> str:
+    """URL pública da API (https + host) por detrás de Nginx; evita depender só de PUBLIC_BASE_URL."""
+    proto = (request.headers.get("x-forwarded-proto") or request.url.scheme or "https").split(",")[0].strip()
+    host = (request.headers.get("x-forwarded-host") or request.headers.get("host") or "").split(",")[0].strip()
+    if host:
+        return f"{proto}://{host}".rstrip("/")
+    return str(request.base_url).rstrip("/")
+
+
+def profile_to_read(p: Profile, request: Request) -> ProfileRead:
     photo_url = None
     if p.photo_path:
-        photo_url = f"{settings.public_base_url.rstrip('/')}/media/{p.photo_path}"
+        photo_url = f"{_media_base_url(request)}/media/{p.photo_path}"
     return ProfileRead(
         id=p.id,
         user_id=p.user_id,
@@ -36,6 +45,7 @@ def profile_to_read(p: Profile) -> ProfileRead:
 
 @router.get("/me", response_model=ProfileRead)
 def get_my_profile(
+    request: Request,
     current: Annotated[User, Depends(get_current_user)],
     db: Session = Depends(get_db),
 ) -> ProfileRead:
@@ -45,11 +55,12 @@ def get_my_profile(
         db.add(prof)
         db.commit()
         db.refresh(prof)
-    return profile_to_read(prof)
+    return profile_to_read(prof, request)
 
 
 @router.patch("/me", response_model=ProfileRead)
 def update_my_profile(
+    request: Request,
     body: ProfileUpdate,
     current: Annotated[User, Depends(get_current_user)],
     db: Session = Depends(get_db),
@@ -64,11 +75,12 @@ def update_my_profile(
         setattr(prof, k, v)
     db.commit()
     db.refresh(prof)
-    return profile_to_read(prof)
+    return profile_to_read(prof, request)
 
 
 @router.post("/me/photo", response_model=ProfileRead)
 async def upload_my_photo(
+    request: Request,
     current: Annotated[User, Depends(get_current_user)],
     db: Session = Depends(get_db),
     file: UploadFile = File(...),
@@ -102,11 +114,12 @@ async def upload_my_photo(
     prof.photo_path = name
     db.commit()
     db.refresh(prof)
-    return profile_to_read(prof)
+    return profile_to_read(prof, request)
 
 
 @router.get("/user/{user_id}", response_model=ProfileRead)
 def get_user_profile(
+    request: Request,
     user_id: int,
     current: Annotated[User, Depends(get_current_user)],
     db: Session = Depends(get_db),
@@ -115,4 +128,4 @@ def get_user_profile(
     prof = db.query(Profile).filter(Profile.user_id == user_id).first()
     if prof is None:
         raise HTTPException(status_code=404, detail="Perfil não encontrado")
-    return profile_to_read(prof)
+    return profile_to_read(prof, request)

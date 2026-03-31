@@ -1,0 +1,17 @@
+# Site estático (Quasar PWA) — copiar para /etc/nginx/sites-available/nopain-nogain
+# e ligar em sites-enabled. server_name e SSL conforme certbot.
+#
+# Raiz: build em /var/www/nopain-nogain/dist/ (scripts/deploy.sh)
+
+server {
+    listen 80;
+    listen [::]:80;
+    server_name nopain-nogain.pt www.nopain-nogain.pt;
+
+    root /var/www/nopain-nogain/dist/;
+    index index.html;
+
+    location / {
+        try_files $uri $uri/ /index.html;
+    }
+}

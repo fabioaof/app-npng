@@ -1,3 +1,6 @@
+# Opcional: só se correres o backend no host com venv (sem Docker).
+# Produção alvo: Docker Compose em /var/www/nopain-nogain-api (ver deploy/env.docker.example).
+
 [Unit]
 Description=NP-NG FastAPI (uvicorn)
 After=network.target postgresql.service
@@ -6,9 +9,9 @@ After=network.target postgresql.service
 Type=simple
 User=www-data
 Group=www-data
-WorkingDirectory=/opt/npng/backend
-EnvironmentFile=/opt/npng/backend/.env
-ExecStart=/opt/npng/backend/.venv/bin/uvicorn app.main:app --host 127.0.0.1 --port 8000
+WorkingDirectory=/var/www/nopain-nogain-api/backend
+EnvironmentFile=/var/www/nopain-nogain-api/backend/.env
+ExecStart=/var/www/nopain-nogain-api/backend/.venv/bin/uvicorn app.main:app --host 127.0.0.1 --port 8000
 Restart=on-failure
 RestartSec=5
 

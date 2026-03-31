@@ -1,11 +1,10 @@
 <template>
   <q-page padding class="app-dash-page">
     <div class="app-page-inner">
-      <!-- Saudação estilo app: avatar + texto + notificações -->
       <div class="app-dash-greet-card q-mb-md">
         <div class="row items-center no-wrap">
           <q-avatar size="52px" class="app-dash-greet-card__avatar" color="grey-3" text-color="grey-8">
-            <img v-if="profile?.photo_url" :src="profile.photo_url" alt="">
+            <img v-if="profile?.photo_url" style="object-fit: cover; width: 100%; height: 100%" :src="profile.photo_url" alt="">
             <span v-else class="text-weight-bold">{{ initials }}</span>
           </q-avatar>
           <div class="col q-ml-md min-width-0">
