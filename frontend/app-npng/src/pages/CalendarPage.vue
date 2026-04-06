@@ -72,7 +72,7 @@
         </div>
       </q-card>
 
-      <q-page-sticky position="bottom-right" :offset="fabOffset">
+      <q-page-sticky v-if="auth.isProfessional" position="bottom-right" :offset="fabOffset">
         <q-btn
           fab
           icon="add"
