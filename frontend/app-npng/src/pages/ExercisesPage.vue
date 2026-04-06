@@ -1,7 +1,7 @@
 <template>
   <q-page padding>
     <div class="app-page-inner">
-      <div class="page-title">{{ $t('Exercícios') }}</div>
+      <div class="page-title">{{ t('Exercícios') }}</div>
       <!-- <q-card flat class="app-card q-pa-md q-mb-md">
         <div class="text-subtitle2 text-weight-medium q-mb-md">Novo grupo muscular</div>
         <div class="row q-col-gutter-sm items-end">
@@ -12,7 +12,7 @@
         </div>
       </q-card> -->
       <q-card flat class="app-card q-pa-md q-mb-md">
-        <div class="text-subtitle2 text-weight-medium q-mb-md">{{ $t('Novo exercício') }}</div>
+        <div class="text-subtitle2 text-weight-medium q-mb-md">{{ t('Novo exercício') }}</div>
         <div class="row q-col-gutter-md">
           <div class="col-12 col-sm-6">
             <q-input v-model="newExName" label="Nome" outlined dense />
@@ -23,14 +23,14 @@
               :options="groupOptions"
               emit-value
               map-options
-              :label="$t('Grupo muscular')"
+              :label="t('Grupo muscular')"
               outlined
               dense
             />
           </div>
         </div>
         <div class="row justify-end">
-          <q-btn class="q-mt-md" unelevated no-caps color="primary" padding="sm md" :label="$t('Criar exercício')" @click="addExercise" :loading="loadingE" />
+          <q-btn class="q-mt-md" unelevated no-caps color="primary" padding="sm md" :label="t('Criar exercício')" @click="addExercise" :loading="loadingE" />
         </div>
       </q-card>
       <q-list separator class="app-list">

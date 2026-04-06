@@ -9,17 +9,17 @@
           </q-avatar>
           <div class="col q-ml-md min-width-0">
             <div class="app-dash-greet-card__line1">
-              👋 Olá, <span class="text-weight-medium">{{ greetName }}</span>
+              👋 {{ t('Olá,') }} <span class="text-weight-medium">{{ greetName }}</span>
             </div>
             <div class="app-dash-greet-card__line2">
-              Bem-vindo de volta
+              Bem-vindo
             </div>
           </div>
         </div>
       </div>
 
       <div v-if="auth.isProfessional && !prof.selectedStudentId" class="text-body2 text-grey-7 q-mb-md">
-        Seleciona um aluno no topo para ver os dados dele, ou vê os teus dados sem seleção.
+        {{ t('Seleciona um aluno no topo para ver os dados dele, ou vê os teus dados sem seleção.') }}
       </div>
 
       <!-- Grelha 2×2: anéis + barra + sparkline -->
@@ -102,17 +102,17 @@
         </q-item>
       </q-list>
       <div v-else class="app-recent-list" style="padding: 20px">
-        <div class="text-body2 text-grey-8 text-center">Ainda não há treinos registados.</div>
+        <div class="text-body2 text-grey-8 text-center">{{ t('Ainda não há treinos registados.') }}</div>
       </div>
 
-      <div class="text-subtitle1 text-weight-bold text-grey-9 q-mb-sm q-mt-lg">Detalhes</div>
-      <div class="text-caption text-grey-7 q-mb-md">Volume por semana e evolução por exercício</div>
+      <div class="text-subtitle1 text-weight-bold text-grey-9 q-mb-sm q-mt-lg">{{ t('Detalhes') }}</div>
+      <div class="text-caption text-grey-7 q-mb-md">{{ t('Volume por semana e evolução por exercício') }}</div>
 
       <div class="row q-col-gutter-md q-mb-lg">
         <div class="col-12 col-md-6">
           <q-card flat class="app-card q-pa-md app-chart-card">
-            <div class="text-subtitle2 text-weight-bold q-mb-sm">Volume por semana</div>
-            <p class="text-caption text-grey-7 q-mb-md">Últimas {{ weeklyChartWeeks }} semanas</p>
+            <div class="text-subtitle2 text-weight-bold q-mb-sm">{{ t('Volume por semana') }}</div>
+            <p class="text-caption text-grey-7 q-mb-md">{{ t('Últimas') }} {{ weeklyChartWeeks }} {{ t('semanas') }}  </p>
             <div class="app-chart-donut-wrap">
               <canvas ref="volChartEl" />
             </div>
@@ -123,7 +123,7 @@
         </div>
         <div class="col-12 col-md-6">
           <q-card flat class="app-card q-pa-md app-chart-card">
-            <div class="text-subtitle2 text-weight-bold q-mb-sm">Peso por sessão</div>
+            <div class="text-subtitle2 text-weight-bold q-mb-sm">{{ t('Peso por sessão') }}</div>
             <div class="row q-col-gutter-sm q-mb-md items-end">
               <div class="col-12">
                 <q-select
@@ -131,7 +131,7 @@
                   :options="exerciseOptions"
                   emit-value
                   map-options
-                  label="Exercício"
+                  :label="t('Exercício')"
                   outlined
                   dense
                   rounded
@@ -145,7 +145,7 @@
               <canvas ref="exChartEl" />
             </div>
             <div v-else class="text-body2 text-grey-7 text-center q-py-lg">
-              Sem dados para este exercício.
+              {{ t('Sem dados para este exercício.') }}
             </div>
           </q-card>
         </div>
@@ -160,8 +160,10 @@ import { Chart, registerables } from 'chart.js'
 import { api } from 'src/api/client'
 import { useAuthStore } from 'src/stores/auth'
 import { useProfessionalStore } from 'src/stores/professional'
+import { useI18n } from 'vue-i18n'
 
 Chart.register(...registerables)
+const { t } = useI18n()
 
 const NEUTRAL_RING = [
   'rgba(156, 175, 170, 0.9)',

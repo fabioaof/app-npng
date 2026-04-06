@@ -2,7 +2,9 @@ from __future__ import annotations
 
 from datetime import datetime
 
-from pydantic import BaseModel, Field, field_validator
+from pydantic import BaseModel, Field
+
+from app.models.workout import AppointmentStatus
 
 
 class WorkoutSetIn(BaseModel):
@@ -34,13 +36,6 @@ class WorkoutSessionCreate(WorkoutSessionBase):
     sets: list[WorkoutSetIn] = Field(default_factory=list)
     user_id: int | None = None
 
-    @field_validator("sets")
-    @classmethod
-    def nonempty_sets(cls, v: list[WorkoutSetIn]) -> list[WorkoutSetIn]:
-        if not v:
-            raise ValueError("Treino deve ter pelo menos um set")
-        return v
-
 
 class WorkoutSessionRead(WorkoutSessionBase):
     id: int
@@ -60,3 +55,35 @@ class WorkoutSessionUpdate(BaseModel):
 
 class DuplicateSessionBody(BaseModel):
     performed_at: datetime
+
+
+class WorkoutAppointmentBase(BaseModel):
+    scheduled_for: datetime
+    title: str | None = Field(None, max_length=200)
+    notes: str | None = None
+
+
+class WorkoutAppointmentCreate(WorkoutAppointmentBase):
+    user_id: int | None = None
+
+
+class WorkoutAppointmentUpdate(BaseModel):
+    scheduled_for: datetime | None = None
+    title: str | None = Field(None, max_length=200)
+    notes: str | None = None
+    status: AppointmentStatus | None = None
+
+
+class WorkoutAppointmentRead(WorkoutAppointmentBase):
+    id: int
+    student_id: int
+    professional_id: int
+    status: AppointmentStatus
+    linked_session_id: int | None = None
+
+    model_config = {"from_attributes": True}
+
+
+class AppointmentConvertBody(BaseModel):
+    session_id: int = Field(ge=1)
+

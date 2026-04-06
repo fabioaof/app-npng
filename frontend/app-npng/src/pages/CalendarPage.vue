@@ -34,21 +34,36 @@
             </div>
           </div>
 
-          <div v-if="daySessions.length" class="calendar-page__timeline">
+          <div v-if="dayItems.length" class="calendar-page__timeline">
             <div
-              v-for="(s, idx) in daySessions"
-              :key="s.id"
+              v-for="(it, idx) in dayItems"
+              :key="it.key"
               class="calendar-page__timeline-row row no-wrap"
             >
-              <div class="calendar-page__time-col">{{ formatTime(s.performed_at) }}</div>
-              <router-link
-                class="calendar-page__event col"
-                :class="'calendar-page__event--tone-' + (idx % 3)"
-                :to="{ name: 'workout-detail', params: { id: s.id } }"
-              >
-                <div class="calendar-page__event-title">{{ s.title || 'Treino' }}</div>
-                <div class="calendar-page__event-caption">{{ formatTimeRange(s) }}</div>
-              </router-link>
+              <div class="calendar-page__time-col">{{ it.timeLabel }}</div>
+              <template v-if="it.kind === 'session'">
+                <router-link
+                  class="calendar-page__event col"
+                  :class="'calendar-page__event--tone-' + (idx % 3)"
+                  :to="{ name: 'workout-detail', params: { id: it.id } }"
+                >
+                  <div class="calendar-page__event-title">{{ it.title || 'Treino' }}</div>
+                  <div class="calendar-page__event-caption">{{ it.caption }}</div>
+                </router-link>
+              </template>
+              <template v-else>
+                <button
+                  type="button"
+                  class="calendar-page__event calendar-page__event--appt col"
+                  @click="openAppointmentDetail(it.id)"
+                >
+                  <div class="calendar-page__event-title row items-center no-wrap">
+                    <q-icon name="event" size="18px" class="q-mr-sm" />
+                    <span class="ellipsis">{{ it.title || 'Marcação' }}</span>
+                  </div>
+                  <div class="calendar-page__event-caption">{{ it.caption }}</div>
+                </button>
+              </template>
             </div>
           </div>
           <div v-else class="calendar-page__empty text-body2">
@@ -57,29 +72,180 @@
         </div>
       </q-card>
 
-      <!-- <q-page-sticky position="bottom-right" :offset="fabOffset">
+      <q-page-sticky position="bottom-right" :offset="fabOffset">
         <q-btn
           fab
           icon="add"
           color="primary"
           class="calendar-page__fab"
-          :to="{ name: 'workout-new' }"
-          aria-label="Novo treino"
+          @click="onClickNewAppointment"
+          aria-label="Nova marcação"
         />
-      </q-page-sticky> -->
+      </q-page-sticky>
+
+      <q-dialog v-model="studentDialogOpen" position="bottom">
+        <q-card style="width: 100%; max-width: 100%; border-radius: 20px 20px 0 0">
+          <q-card-section class="q-pb-sm">
+            <div class="text-h6 text-weight-bold" style="letter-spacing: -0.02em">
+              Selecionar aluno
+            </div>
+            <p class="text-body2 text-grey-7 q-mb-none q-mt-xs">
+              Escolhe o aluno para criar a marcação.
+            </p>
+          </q-card-section>
+          <q-card-section class="q-pt-sm">
+            <q-select
+              v-model="dialogStudentId"
+              :options="studentOptions"
+              emit-value
+              map-options
+              label="Aluno"
+              outlined
+              dense
+              rounded
+              bg-color="white"
+              :loading="studentsLoading"
+              :disable="studentsLoading || !studentOptions.length"
+              menu-anchor="bottom middle"
+              menu-self="top middle"
+            />
+          </q-card-section>
+          <q-card-actions align="right" class="q-px-md q-pb-md">
+            <q-btn v-close-popup flat no-caps rounded color="grey-8" label="Cancelar" />
+            <q-btn
+              unelevated
+              no-caps
+              rounded
+              color="primary"
+              label="Continuar"
+              :disable="dialogStudentId == null"
+              @click="confirmStudentAndOpenCreate"
+            />
+          </q-card-actions>
+        </q-card>
+      </q-dialog>
+
+      <q-dialog v-model="createDialogOpen" position="bottom">
+        <q-card style="width: 100%; max-width: 100%; border-radius: 20px 20px 0 0">
+          <q-card-section class="q-pb-sm">
+            <div class="text-h6 text-weight-bold" style="letter-spacing: -0.02em">
+              Nova marcação
+            </div>
+            <p class="text-body2 text-grey-7 q-mb-none q-mt-xs">
+              Agenda uma sessão para o aluno selecionado.
+            </p>
+          </q-card-section>
+
+          <q-card-section class="q-pt-sm">
+            <q-input
+              v-model="createScheduledLocal"
+              label="Data e hora"
+              outlined
+              dense
+              rounded
+              bg-color="white"
+              type="datetime-local"
+            />
+            <q-input
+              v-model="createTitle"
+              class="q-mt-sm"
+              label="Título (opcional)"
+              outlined
+              dense
+              rounded
+              bg-color="white"
+            />
+            <q-input
+              v-model="createNotes"
+              class="q-mt-sm"
+              label="Notas (opcional)"
+              type="textarea"
+              outlined
+              dense
+              rounded
+              rows="2"
+              bg-color="white"
+            />
+          </q-card-section>
+          <q-card-actions align="right" class="q-px-md q-pb-md">
+            <q-btn v-close-popup flat no-caps rounded color="grey-8" label="Cancelar" />
+            <q-btn
+              unelevated
+              no-caps
+              rounded
+              color="primary"
+              label="Criar"
+              :loading="savingAppointment"
+              :disable="!createScheduledLocal"
+              @click="createAppointment"
+            />
+          </q-card-actions>
+        </q-card>
+      </q-dialog>
+
+      <q-dialog v-model="detailDialogOpen" position="bottom">
+        <q-card style="width: 100%; max-width: 100%; border-radius: 20px 20px 0 0">
+          <q-card-section class="q-pb-sm">
+            <div class="text-h6 text-weight-bold" style="letter-spacing: -0.02em">
+              {{ selectedAppointment?.title || 'Marcação' }}
+            </div>
+            <p class="text-body2 text-grey-7 q-mb-none q-mt-xs">
+              {{ selectedAppointment ? formatDateTime(selectedAppointment.scheduled_for) : '' }}
+            </p>
+          </q-card-section>
+          <q-card-section v-if="selectedAppointment?.notes" class="q-pt-sm">
+            <div class="text-body2 text-grey-8" style="white-space: pre-wrap">{{ selectedAppointment.notes }}</div>
+          </q-card-section>
+          <q-card-actions align="right" class="q-px-md q-pb-md">
+            <q-btn
+              v-close-popup
+              flat
+              no-caps
+              rounded
+              color="grey-8"
+              label="Fechar"
+            />
+            <q-btn
+              v-if="auth.isProfessional"
+              flat
+              no-caps
+              rounded
+              color="negative"
+              label="Cancelar marcação"
+              :disable="selectedAppointment?.status !== 'scheduled'"
+              :loading="savingAppointment"
+              @click="cancelSelectedAppointment"
+            />
+            <q-btn
+              v-if="auth.isProfessional"
+              unelevated
+              no-caps
+              rounded
+              color="primary"
+              label="Converter em treino"
+              :disable="selectedAppointment?.status !== 'scheduled'"
+              @click="goConvertSelected"
+            />
+          </q-card-actions>
+        </q-card>
+      </q-dialog>
     </div>
   </q-page>
 </template>
 
 <script setup>
 import { ref, computed, watch, onMounted } from 'vue'
+import { useRouter } from 'vue-router'
+import { Notify } from 'quasar'
 import { api } from 'src/api/client'
 import { useAuthStore } from 'src/stores/auth'
 import { useProfessionalStore } from 'src/stores/professional'
 
 const auth = useAuthStore()
 const prof = useProfessionalStore()
+const router = useRouter()
 const sessions = ref([])
+const appointments = ref([])
 const proxyDate = ref(new Date().toISOString().slice(0, 10).replace(/-/g, '/'))
 
 const calendarLocale = {
@@ -89,9 +255,52 @@ const calendarLocale = {
   monthsShort: 'Jan_Fev_Mar_Abr_Mai_Jun_Jul_Ago_Set_Out_Nov_Dez'.split('_'),
 }
 
-// const fabOffset = [18, 96]
+const fabOffset = [18, 96]
+
+const studentsLoading = ref(false)
+const students = ref([])
+const studentDialogOpen = ref(false)
+const dialogStudentId = ref(null)
+
+const createDialogOpen = ref(false)
+const savingAppointment = ref(false)
+const createScheduledLocal = ref('')
+const createTitle = ref('')
+const createNotes = ref('')
+
+const detailDialogOpen = ref(false)
+const selectedAppointmentId = ref(null)
+const selectedAppointment = computed(() =>
+  appointments.value.find((a) => a.id === selectedAppointmentId.value) || null,
+)
+
+const studentOptions = computed(() =>
+  students.value.map((s) => ({
+    label: s.user?.email + (s.profile?.full_name ? ` (${s.profile.full_name})` : ''),
+    value: s.user?.id,
+  })),
+)
+
+const studentsById = computed(() => {
+  const map = new Map()
+  for (const s of students.value) {
+    const id = s.user?.id
+    if (id != null) {
+      map.set(id, s)
+    }
+  }
+  return map
+})
 
 function scopeParams () {
+  if (auth.isProfessional && prof.selectedStudentId) {
+    return { user_id: prof.selectedStudentId }
+  }
+  return {}
+}
+
+function scopeParamsAppointments () {
+  // Profissional sem aluno selecionado: ver marcações de todos os alunos
   if (auth.isProfessional && prof.selectedStudentId) {
     return { user_id: prof.selectedStudentId }
   }
@@ -126,7 +335,7 @@ const todayOrDateLabel = computed(() => {
 })
 
 const agendaSummary = computed(() => {
-  const n = daySessions.value.length
+  const n = dayItems.value.length
   if (n === 0) return 'Nenhum treino agendado'
   if (n === 1) return '1 treino'
   return `${n} treinos`
@@ -136,6 +345,12 @@ const eventDates = computed(() => {
   const set = new Set()
   for (const s of sessions.value) {
     const d = new Date(s.performed_at)
+    const key = `${d.getFullYear()}/${String(d.getMonth() + 1).padStart(2, '0')}/${String(d.getDate()).padStart(2, '0')}`
+    set.add(key)
+  }
+  for (const a of appointments.value) {
+    if (a.status !== 'scheduled') continue
+    const d = new Date(a.scheduled_for)
     const key = `${d.getFullYear()}/${String(d.getMonth() + 1).padStart(2, '0')}/${String(d.getDate()).padStart(2, '0')}`
     set.add(key)
   }
@@ -151,6 +366,47 @@ const daySessions = computed(() => {
   })
 })
 
+const dayAppointments = computed(() => {
+  const target = selectedDay.value
+  return appointments.value.filter((a) => {
+    if (a.status !== 'scheduled') return false
+    const d = new Date(a.scheduled_for)
+    const key = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
+    return key === target
+  })
+})
+
+const dayItems = computed(() => {
+  const items = []
+  for (const s of daySessions.value) {
+    items.push({
+      key: `s:${s.id}`,
+      kind: 'session',
+      id: s.id,
+      at: s.performed_at,
+      timeLabel: formatTime(s.performed_at),
+      title: s.title,
+      caption: formatTimeRange(s),
+    })
+  }
+  for (const a of dayAppointments.value) {
+    const st = auth.isProfessional ? studentsById.value.get(a.student_id) : null
+    const stLabel = st
+      ? (st.profile?.full_name || st.user?.email || `Aluno ${a.student_id}`)
+      : (auth.isProfessional ? `Aluno ${a.student_id}` : null)
+    items.push({
+      key: `a:${a.id}`,
+      kind: 'appointment',
+      id: a.id,
+      at: a.scheduled_for,
+      timeLabel: formatTime(a.scheduled_for),
+      title: a.title,
+      caption: stLabel ? `Marcação · ${stLabel}` : 'Marcação',
+    })
+  }
+  return items.sort((x, y) => new Date(x.at).getTime() - new Date(y.at).getTime())
+})
+
 function formatTime (iso) {
   return new Date(iso).toLocaleTimeString('pt-PT', { hour: '2-digit', minute: '2-digit' })
 }
@@ -160,13 +416,133 @@ function formatTimeRange (s) {
   return start
 }
 
+function formatDateTime (iso) {
+  return new Date(iso).toLocaleString('pt-PT', {
+    weekday: 'short',
+    day: '2-digit',
+    month: 'short',
+    hour: '2-digit',
+    minute: '2-digit',
+  })
+}
+
+function toIso (localStr) {
+  if (!localStr) return new Date().toISOString()
+  const d = new Date(localStr)
+  return Number.isNaN(d.getTime()) ? new Date().toISOString() : d.toISOString()
+}
+
+function monthRangeForApi () {
+  const [y, m] = proxyDate.value.split('/').map(Number)
+  const start = new Date(y, m - 1, 1)
+  const end = new Date(y, m, 0, 23, 59, 59, 999)
+  return { date_from: start.toISOString(), date_to: end.toISOString() }
+}
+
 async function load () {
-  const { data } = await api.get('/workouts/sessions', { params: scopeParams() })
-  sessions.value = data
+  const range = monthRangeForApi()
+  if (auth.isProfessional && !prof.selectedStudentId) {
+    sessions.value = []
+  } else {
+    const { data } = await api.get('/workouts/sessions', { params: { ...scopeParams(), ...range } })
+    sessions.value = data
+  }
+
+  const { data: ap } = await api.get('/appointments', { params: { ...scopeParamsAppointments(), ...range } })
+  appointments.value = ap
+}
+
+async function loadStudents () {
+  if (!auth.isProfessional) return
+  studentsLoading.value = true
+  try {
+    const { data } = await api.get('/professional/students')
+    students.value = data || []
+  } catch {
+    students.value = []
+  } finally {
+    studentsLoading.value = false
+  }
+}
+
+async function onClickNewAppointment () {
+  if (auth.isProfessional && !prof.selectedStudentId) {
+    if (!students.value.length) await loadStudents()
+    dialogStudentId.value = null
+    studentDialogOpen.value = true
+    return
+  }
+  openCreateDialog()
+}
+
+function openCreateDialog () {
+  const d = selectedDate.value
+  const iso = new Date(d.getFullYear(), d.getMonth(), d.getDate(), new Date().getHours(), new Date().getMinutes())
+    .toISOString()
+    .slice(0, 16)
+  createScheduledLocal.value = iso
+  createTitle.value = ''
+  createNotes.value = ''
+  createDialogOpen.value = true
+}
+
+function confirmStudentAndOpenCreate () {
+  if (dialogStudentId.value == null) {
+    Notify.create({ type: 'warning', message: 'Escolhe um aluno.', position: 'top' })
+    return
+  }
+  prof.setSelectedStudent(dialogStudentId.value)
+  studentDialogOpen.value = false
+  openCreateDialog()
+}
+
+async function createAppointment () {
+  if (!createScheduledLocal.value) return
+  if (auth.isProfessional && !prof.selectedStudentId) return
+  savingAppointment.value = true
+  try {
+    await api.post('/appointments', {
+      user_id: prof.selectedStudentId,
+      scheduled_for: toIso(createScheduledLocal.value),
+      title: createTitle.value || null,
+      notes: createNotes.value || null,
+    })
+    createDialogOpen.value = false
+    await load()
+  } finally {
+    savingAppointment.value = false
+  }
+}
+
+function openAppointmentDetail (id) {
+  selectedAppointmentId.value = id
+  detailDialogOpen.value = true
+}
+
+async function cancelSelectedAppointment () {
+  if (!selectedAppointment.value) return
+  savingAppointment.value = true
+  try {
+    await api.patch(`/appointments/${selectedAppointment.value.id}`, { status: 'cancelled' })
+    detailDialogOpen.value = false
+    await load()
+  } finally {
+    savingAppointment.value = false
+  }
+}
+
+function goConvertSelected () {
+  if (!selectedAppointment.value) return
+  detailDialogOpen.value = false
+  router.push({ name: 'workout-new', query: { from_appointment: String(selectedAppointment.value.id) } })
 }
 
 watch(() => prof.selectedStudentId, load)
+watch(proxyDate, load)
 onMounted(load)
+onMounted(() => {
+  if (auth.isProfessional) loadStudents()
+})
 </script>
 
 <style lang="scss" scoped>
@@ -305,6 +681,19 @@ onMounted(load)
   border-radius: var(--app-radius-lg);
   padding: 14px 16px;
   transition: transform 0.15s ease, box-shadow 0.2s ease;
+}
+
+.calendar-page__event--appt {
+  width: 100%;
+  text-align: left;
+  cursor: pointer;
+  background: linear-gradient(145deg, rgba(251, 243, 213, 0.7) 0%, rgba(156, 175, 170, 0.12) 100%);
+  border: 1px solid rgba(212, 201, 168, 0.65);
+  box-shadow: var(--app-shadow-sm);
+}
+
+.calendar-page__event--appt:active {
+  transform: scale(0.99);
 }
 
 .calendar-page__event:active {

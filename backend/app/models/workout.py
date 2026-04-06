@@ -74,3 +74,41 @@ class WorkoutSet(Base):
 
     session: Mapped[WorkoutSession] = relationship(back_populates="sets")
     exercise: Mapped[Exercise] = relationship()
+
+
+class AppointmentStatus(str, enum.Enum):
+    scheduled = "scheduled"
+    cancelled = "cancelled"
+    converted = "converted"
+
+
+class WorkoutAppointment(Base):
+    __tablename__ = "workout_appointments"
+
+    id: Mapped[int] = mapped_column(primary_key=True, autoincrement=True)
+    student_id: Mapped[int] = mapped_column(
+        ForeignKey("users.id", ondelete="CASCADE"),
+        nullable=False,
+        index=True,
+    )
+    professional_id: Mapped[int] = mapped_column(
+        ForeignKey("users.id", ondelete="CASCADE"),
+        nullable=False,
+        index=True,
+    )
+    scheduled_for: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False, index=True)
+    title: Mapped[Optional[str]] = mapped_column(String(200), nullable=True)
+    notes: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
+    status: Mapped[AppointmentStatus] = mapped_column(
+        SAEnum(AppointmentStatus, name="appointmentstatus", native_enum=False, length=16),
+        default=AppointmentStatus.scheduled,
+        nullable=False,
+    )
+    linked_session_id: Mapped[Optional[int]] = mapped_column(
+        ForeignKey("workout_sessions.id", ondelete="SET NULL"),
+        nullable=True,
+    )
+
+    student: Mapped[User] = relationship(foreign_keys=[student_id])
+    professional: Mapped[User] = relationship(foreign_keys=[professional_id])
+    linked_session: Mapped[Optional[WorkoutSession]] = relationship(foreign_keys=[linked_session_id])

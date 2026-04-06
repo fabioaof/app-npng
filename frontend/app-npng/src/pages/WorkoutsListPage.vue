@@ -13,7 +13,7 @@
             label="Novo"
             padding="sm md"
             rounded
-            :to="{ name: 'workout-new' }"
+            @click="onClickNew"
           />
         </div>
       </div>
@@ -33,8 +33,8 @@
         </template>
       </q-input>
 
-      <q-banner v-if="auth.isProfessional && !prof.selectedStudentId" class="app-banner q-mb-md" dense rounded>
-        Seleciona um aluno no topo para listar os treinos desse aluno.
+      <q-banner v-if="auth.isProfessional && !prof.selectedStudentId" class="app-banner--warning q-mb-md" dense rounded>
+        {{ t('Seleciona um aluno no topo para listar os treinos desse aluno.') }}
       </q-banner>
 
       <div v-if="filteredSessions.length">
@@ -75,6 +75,50 @@
         {{ search ? 'Nenhum resultado.' : 'Sem treinos registados.' }}
       </div>
       <q-inner-loading :showing="loading" />
+
+      <q-dialog v-model="studentDialogOpen" position="bottom">
+        <q-card style="width: 100%; max-width: 100%; border-radius: 20px 20px 0 0">
+          <q-card-section class="q-pb-sm">
+            <div class="text-h6 text-weight-bold" style="letter-spacing: -0.02em">
+              Selecionar aluno
+            </div>
+            <p class="text-body2 text-grey-7 q-mb-none q-mt-xs">
+              Escolhe o aluno para iniciar o treino.
+            </p>
+          </q-card-section>
+
+          <q-card-section class="q-pt-sm">
+            <q-select
+              v-model="dialogStudentId"
+              :options="studentOptions"
+              emit-value
+              map-options
+              label="Aluno"
+              outlined
+              dense
+              rounded
+              bg-color="white"
+              :loading="studentsLoading"
+              :disable="studentsLoading || !studentOptions.length"
+              menu-anchor="bottom middle"
+              menu-self="top middle"
+            />
+          </q-card-section>
+
+          <q-card-actions align="right" class="q-px-md q-pb-md">
+            <q-btn v-close-popup flat no-caps rounded color="grey-8" label="Cancelar" />
+            <q-btn
+              unelevated
+              no-caps
+              rounded
+              color="primary"
+              label="Continuar"
+              :disable="dialogStudentId == null"
+              @click="confirmStudentAndGoNew"
+            />
+          </q-card-actions>
+        </q-card>
+      </q-dialog>
     </div>
   </q-page>
 </template>
@@ -82,16 +126,31 @@
 <script setup>
 import { ref, computed, watch, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
+import { Notify } from 'quasar'
 import { api } from 'src/api/client'
 import { useAuthStore } from 'src/stores/auth'
 import { useProfessionalStore } from 'src/stores/professional'
+import { useI18n } from 'vue-i18n'
 
 const router = useRouter()
+const { t } = useI18n()
 const sessions = ref([])
 const loading = ref(false)
 const search = ref('')
 const auth = useAuthStore()
 const prof = useProfessionalStore()
+
+const studentDialogOpen = ref(false)
+const studentsLoading = ref(false)
+const students = ref([])
+const dialogStudentId = ref(null)
+
+const studentOptions = computed(() =>
+  students.value.map((s) => ({
+    label: s.user?.email + (s.profile?.full_name ? ` (${s.profile.full_name})` : ''),
+    value: s.user?.id,
+  })),
+)
 
 const filteredSessions = computed(() => {
   const q = search.value.trim().toLowerCase()
@@ -118,6 +177,43 @@ function formatDateShort (iso) {
 
 function goDetail (id) {
   router.push({ name: 'workout-detail', params: { id } })
+}
+
+async function loadStudents () {
+  if (!auth.isProfessional) return
+  studentsLoading.value = true
+  try {
+    const { data } = await api.get('/professional/students')
+    students.value = data || []
+  } catch {
+    students.value = []
+  } finally {
+    studentsLoading.value = false
+  }
+}
+
+async function onClickNew () {
+  if (auth.isProfessional && !prof.selectedStudentId) {
+    if (!students.value.length) await loadStudents()
+    dialogStudentId.value = null
+    studentDialogOpen.value = true
+    return
+  }
+  router.push({ name: 'workout-new' })
+}
+
+function confirmStudentAndGoNew () {
+  if (dialogStudentId.value == null) {
+    Notify.create({
+      type: 'warning',
+      message: t('Escolhe um aluno.'),
+      position: 'top',
+    })
+    return
+  }
+  prof.setSelectedStudent(dialogStudentId.value)
+  studentDialogOpen.value = false
+  router.push({ name: 'workout-new' })
 }
 
 async function load () {

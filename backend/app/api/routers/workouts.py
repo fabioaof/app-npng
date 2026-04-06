@@ -89,6 +89,8 @@ def create_session(
     db: Session = Depends(get_db),
 ) -> WorkoutSessionRead:
     target_user_id, logged_by = _resolve_target_user(current, body.user_id, db)
+    if current.role != UserRole.professional and not body.sets:
+        raise HTTPException(status_code=400, detail="Treino deve ter pelo menos um set")
     exercise_ids = {x.exercise_id for x in body.sets}
     for eid in exercise_ids:
         ex = db.get(Exercise, eid)
@@ -167,7 +169,7 @@ def update_session(
     if body.notes is not None:
         sess.notes = body.notes
     if body.sets is not None:
-        if not body.sets:
+        if not body.sets and current.role != UserRole.professional:
             raise HTTPException(status_code=400, detail="Treino deve ter pelo menos um set")
         exercise_ids = {x.exercise_id for x in body.sets}
         for eid in exercise_ids:

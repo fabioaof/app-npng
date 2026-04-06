@@ -31,7 +31,7 @@
 
         <q-banner
           v-if="auth.isProfessional && !prof.selectedStudentId && isNew"
-          class="app-banner--warning q-mb-md"
+          class="app-banner q-mb-md"
           dense
           rounded
         >
@@ -288,6 +288,15 @@ const prof = useProfessionalStore()
 const isNew = computed(() => route.name === 'workout-new')
 const sessionId = computed(() => route.params.id)
 
+const fromAppointmentId = computed(() => {
+  const v = route.query.from_appointment
+  if (v == null) return null
+  const n = Number(v)
+  return Number.isFinite(n) && n > 0 ? n : null
+})
+
+const linkedAppointmentId = ref(null)
+
 let blockIdSeq = 0
 function nextBlockId () {
   blockIdSeq += 1
@@ -458,6 +467,19 @@ async function loadSession () {
     performedAtLocal.value = new Date().toISOString().slice(0, 16)
     blockIdSeq = 0
     blocks.value = []
+    linkedAppointmentId.value = null
+    if (fromAppointmentId.value) {
+      try {
+        const { data } = await api.get(`/appointments/${fromAppointmentId.value}`)
+        performedAtLocal.value = data.scheduled_for?.slice(0, 16) || performedAtLocal.value
+        title.value = data.title || ''
+        notes.value = data.notes || ''
+        linkedAppointmentId.value = data.id
+      } catch {
+        // Se a marcação não existir/permissões, ignora e cria treino normal.
+        linkedAppointmentId.value = null
+      }
+    }
     ready.value = true
     return
   }
@@ -475,7 +497,7 @@ async function onSave () {
     return
   }
   const payloadSets = flattenBlocksToPayload()
-  if (!payloadSets.length) {
+  if (!payloadSets.length && !auth.isProfessional) {
     Notify.create({
       type: 'warning',
       message: 'Adiciona pelo menos um exercício e um set antes de guardar.',
@@ -495,7 +517,10 @@ async function onSave () {
       payload.user_id = prof.selectedStudentId
     }
     if (isNew.value) {
-      await api.post('/workouts/sessions', payload)
+      const { data: created } = await api.post('/workouts/sessions', payload)
+      if (linkedAppointmentId.value) {
+        await api.post(`/appointments/${linkedAppointmentId.value}/convert`, { session_id: created.id })
+      }
     } else {
       await api.patch(`/workouts/sessions/${sessionId.value}`, payload)
     }

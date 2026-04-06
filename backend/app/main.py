@@ -4,7 +4,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 
-from app.api.routers import auth, dashboard, exercises, professionals, profiles, workouts
+from app.api.routers import appointments, auth, dashboard, exercises, professionals, profiles, workouts
 from app.core.config import settings
 
 app = FastAPI(title=settings.app_name)
@@ -29,6 +29,7 @@ app.include_router(auth.router, prefix=settings.api_prefix)
 app.include_router(profiles.router, prefix=settings.api_prefix)
 app.include_router(exercises.router, prefix=settings.api_prefix)
 app.include_router(workouts.router, prefix=settings.api_prefix)
+app.include_router(appointments.router, prefix=settings.api_prefix)
 app.include_router(professionals.router, prefix=settings.api_prefix)
 app.include_router(dashboard.router, prefix=settings.api_prefix)
 

@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from typing import Annotated
 
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, Request, status
 from starlette.responses import Response
 from sqlalchemy.orm import Session
 
@@ -21,6 +21,7 @@ router = APIRouter(prefix="/professional", tags=["professional"])
 
 @router.get("/students", response_model=list[StudentWithProfile])
 def list_students(
+    request: Request,
     current: Annotated[User, Depends(require_professional)],
     db: Session = Depends(get_db),
 ) -> list[StudentWithProfile]:
@@ -35,7 +36,7 @@ def list_students(
         if u is None:
             continue
         prof = db.query(Profile).filter(Profile.user_id == u.id).first()
-        pr = profile_to_read(prof) if prof else None
+        pr = profile_to_read(prof, request) if prof else None
         out.append(
             StudentWithProfile(
                 user=UserPublic.model_validate(u),
