@@ -3,15 +3,15 @@
     <div class="app-page-inner">
       <div class="page-title">Alunos</div>
       <q-card flat class="app-card q-pa-md q-mb-md">
-        <div class="text-subtitle2 text-weight-medium q-mb-md">Associar aluno</div>
+        <div class="text-subtitle2 text-weight-medium q-mb-md">{{ t('Associar aluno') }}</div>
         <div class="row q-col-gutter-sm">
           <div class="col-12">
-            <q-input v-model="email" type="email" label="Email do aluno" outlined dense />
+            <q-input v-model="email" type="email" :label="t('Email do aluno')" outlined dense />
           </div>
           <div class="col-12">
             <div class="row q-gutter-sm justify-end">
-              <q-btn unelevated no-caps color="primary" padding="sm md" label="Adicionar" :loading="adding" @click="addStudent" />
-              <q-btn outline no-caps color="primary" padding="sm md" label="Nova conta" @click="openCreateDialog" />
+              <q-btn unelevated no-caps color="primary" padding="sm md" :label="t('Adicionar')" :loading="adding" @click="addStudent" />
+              <q-btn outline no-caps color="primary" padding="sm md" :label="t('Nova conta')" @click="openCreateDialog" />
             </div>
           </div>
         </div>
@@ -20,7 +20,7 @@
       <q-dialog v-model="createDialogOpen" persistent>
         <q-card style="width: 720px; max-width: 92vw;">
           <q-card-section class="row items-center q-pb-none">
-            <div class="text-subtitle1 text-weight-medium">Nova conta de aluno</div>
+            <div class="text-subtitle1 text-weight-medium">{{ t('Nova conta de aluno') }}</div>
             <q-space />
             <q-btn icon="close" flat round dense :disable="creating" v-close-popup />
           </q-card-section>
@@ -31,30 +31,30 @@
                 <q-input v-model="newEmail" type="email" label="Email" outlined dense />
               </div>
               <div class="col-12 col-md-6">
-                <q-input v-model="newPassword" :type="showPassword ? 'text' : 'password'" label="Password temporária" outlined dense>
+                <q-input v-model="newPassword" :type="showPassword ? 'text' : 'password'" :label="t('Password temporária')" outlined dense>
                   <template #append>
                     <q-btn flat round dense :icon="showPassword ? 'visibility_off' : 'visibility'" @click="showPassword = !showPassword" />
                   </template>
                 </q-input>
               </div>
               <div class="col-12">
-                <q-input v-model="newFullName" label="Nome (opcional)" outlined dense />
+                <q-input v-model="newFullName" :label="t('Nome (opcional)')" outlined dense />
               </div>
               <div class="col-12 col-md-4">
-                <q-input v-model="newBirthDate" type="date" label="Data nascimento (opcional)" outlined dense />
+                <q-input v-model="newBirthDate" type="date" :label="t('Data nascimento (opcional)')" outlined dense />
               </div>
               <div class="col-6 col-md-4">
-                <q-input v-model.number="newWeightKg" type="number" label="Peso kg (opcional)" outlined dense />
+                <q-input v-model.number="newWeightKg" type="number" :label="t('Peso kg (opcional)')" outlined dense />
               </div>
               <div class="col-6 col-md-4">
-                <q-input v-model.number="newHeightCm" type="number" label="Altura cm (opcional)" outlined dense />
+                <q-input v-model.number="newHeightCm" type="number" :label="t('Altura cm (opcional)')" outlined dense />
               </div>
             </div>
           </q-card-section>
 
           <q-card-actions align="right" class="q-pa-md">
-            <q-btn flat no-caps color="grey-7" label="Cancelar" :disable="creating" v-close-popup />
-            <q-btn unelevated no-caps color="primary" label="Criar conta e associar" :loading="creating" @click="createStudentAccount" />
+            <q-btn flat no-caps color="grey-7" :label="t('Cancelar')" :disable="creating" v-close-popup />
+            <q-btn unelevated no-caps color="primary" :label="t('Criar conta e associar')" :loading="creating" @click="createStudentAccount" />
           </q-card-actions>
         </q-card>
       </q-dialog>
@@ -70,8 +70,8 @@
           </q-item-section>
           <q-item-section side class="items-end">
             <div class="row q-gutter-xs no-wrap">
-              <q-btn flat no-caps dense color="primary" label="Usar" @click="selectStudent(s.user.id)" />
-              <q-btn flat dense round icon="delete" color="grey-7" @click="removeStudent(s.user.id)" />
+              <q-btn flat no-caps dense color="primary" :label="t('Usar')" @click="selectStudent(s.user.id)" />
+              <q-btn flat dense round icon="delete" color="negative" @click="removeStudent(s.user.id)" />
             </div>
           </q-item-section>
         </q-item>
