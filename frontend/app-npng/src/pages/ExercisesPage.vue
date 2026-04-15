@@ -111,7 +111,10 @@ function removeEx (ex) {
   Dialog.create({
     title: t('Apagar exercício'),
     message: t('Apagar exercício', { name: ex.name }),
-    cancel: true,
+    cancel: {
+      label: t('Cancelar'),
+      color: 'negative',
+    }
   }).onOk(async () => {
     await api.delete(`/exercises/${ex.id}`)
     await load()

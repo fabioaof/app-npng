@@ -15,7 +15,6 @@
           emit-value
           map-options
           label="Aluno"
-          clearable
           color="grey-8"
           bg-color="white"
           rounded
@@ -35,10 +34,18 @@
           v-for="link in navLinksWithoutProfile"
           :key="link.to"
           :to="link.to"
-          :icon="link.icon"
-          :label="link.shortLabel"
           no-caps
-        />
+        >
+          <div class="column items-center no-wrap">
+            <template v-if="link.to === '/dashboard'">
+              <img :src="npngIcon" alt="Início" class="app-tab-home__icon">
+            </template>
+            <template v-else>
+              <q-icon :name="link.icon" size="22px" />
+              <span class="app-footer-tabs__label">{{ link.shortLabel }}</span>
+            </template>
+          </div>
+        </q-route-tab>
         <q-route-tab :to="{ name: 'profile' }" no-caps class="app-tab-profile">
           <div class="column items-center no-wrap app-tab-profile__inner">
             <q-avatar
@@ -66,6 +73,7 @@ import { useRoute } from 'vue-router'
 import { useAuthStore } from 'src/stores/auth'
 import { useProfessionalStore } from 'src/stores/professional'
 import { api } from 'src/api/client'
+import npngIcon from 'src/assets/npng-icon.png'
 
 const route = useRoute()
 const auth = useAuthStore()
@@ -78,8 +86,8 @@ const navLinks = computed(() => {
   const base = [
     { label: 'Dashboard', shortLabel: 'Início', to: '/dashboard', icon: 'insights' },
     { label: 'Treinos', shortLabel: 'Treinos', to: '/workouts', icon: 'fitness_center' },
-    { label: 'Exercícios', shortLabel: 'Exercícios', to: '/exercises', icon: 'sports_gymnastics' },
     { label: 'Calendário', shortLabel: 'Agenda', to: '/calendar', icon: 'calendar_month' },
+    { label: 'Exercícios', shortLabel: 'Exercícios', to: '/exercises', icon: 'sports_gymnastics' },
     { label: 'Perfil', shortLabel: 'Perfil', to: '/profile', icon: 'person' },
   ]
   if (auth.isProfessional) {
@@ -92,8 +100,20 @@ const navLinksWithoutProfile = computed(() =>
   navLinks.value.filter((l) => l.to !== '/profile'),
 )
 
+function studentSortKey (s) {
+  const name = s?.profile?.full_name?.trim()
+  const email = s?.user?.email?.trim()
+  return (name || email || '').toLowerCase()
+}
+
+const sortedStudents = computed(() =>
+  [...students.value].sort((a, b) =>
+    studentSortKey(a).localeCompare(studentSortKey(b), 'pt-PT', { sensitivity: 'base' }),
+  ),
+)
+
 const studentOptions = computed(() =>
-  students.value.map((s) => ({
+  sortedStudents.value.map((s) => ({
     label: s.user?.email + (s.profile?.full_name ? ` (${s.profile.full_name})` : ''),
     value: s.user?.id,
   })),
@@ -130,9 +150,21 @@ async function loadStudents () {
   if (!auth.isProfessional) return
   try {
     const { data } = await api.get('/professional/students')
-    students.value = data
+    students.value = data || []
   } catch {
     students.value = []
+  } finally {
+    ensureStudentSelectedIfRequired()
+  }
+}
+
+function ensureStudentSelectedIfRequired () {
+  if (!auth.isProfessional) return
+  const isCalendar = route.name === 'calendar' || String(route.path || '').startsWith('/calendar')
+  if (isCalendar) return
+  if (selectedStudentId.value != null) return
+  if (sortedStudents.value.length) {
+    selectedStudentId.value = sortedStudents.value[0].user?.id ?? null
   }
 }
 
@@ -140,6 +172,8 @@ watch(
   () => route.name,
   (n, prev) => {
     if (prev === 'profile' && n !== 'profile') loadProfile()
+    // Ao sair da Agenda, se ficou sem aluno selecionado, repõe automaticamente
+    ensureStudentSelectedIfRequired()
   },
 )
 
@@ -148,4 +182,24 @@ onMounted(() => {
   loadStudents()
 })
 watch(() => auth.user?.role, loadStudents)
+watch(selectedStudentId, (id) => {
+  if (!auth.isProfessional) return
+  if (id != null) return
+  ensureStudentSelectedIfRequired()
+})
 </script>
+
+<style scoped>
+.app-footer-tabs__label {
+  font-size: 0.7rem;
+  line-height: 1;
+  margin-top: 4px;
+}
+
+.app-tab-home__icon {
+  width: 50px;
+  height: 50px;
+  object-fit: contain;
+  margin-top: 2px;
+}
+</style>

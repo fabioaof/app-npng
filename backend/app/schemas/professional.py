@@ -25,3 +25,8 @@ class StudentProfileUpsert(BaseModel):
     birth_date: date | None = None
     weight_kg: float | None = Field(None, ge=0)
     height_cm: float | None = Field(None, ge=0)
+
+
+class StudentAccountCreate(StudentProfileUpsert):
+    email: EmailStr
+    password: str = Field(min_length=6, max_length=128)

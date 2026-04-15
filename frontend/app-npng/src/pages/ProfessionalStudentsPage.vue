@@ -3,14 +3,62 @@
     <div class="app-page-inner">
       <div class="page-title">Alunos</div>
       <q-card flat class="app-card q-pa-md q-mb-md">
-        <div class="text-subtitle2 text-weight-medium q-mb-md">Associar aluno (email já registado)</div>
-        <div class="row q-col-gutter-sm items-end">
-          <div class="col">
+        <div class="text-subtitle2 text-weight-medium q-mb-md">Associar aluno</div>
+        <div class="row q-col-gutter-sm">
+          <div class="col-12">
             <q-input v-model="email" type="email" label="Email do aluno" outlined dense />
           </div>
-          <q-btn unelevated no-caps color="primary" padding="sm md" label="Adicionar" :loading="adding" @click="addStudent" />
+          <div class="col-12">
+            <div class="row q-gutter-sm justify-end">
+              <q-btn unelevated no-caps color="primary" padding="sm md" label="Adicionar" :loading="adding" @click="addStudent" />
+              <q-btn outline no-caps color="primary" padding="sm md" label="Nova conta" @click="openCreateDialog" />
+            </div>
+          </div>
         </div>
       </q-card>
+
+      <q-dialog v-model="createDialogOpen" persistent>
+        <q-card style="width: 720px; max-width: 92vw;">
+          <q-card-section class="row items-center q-pb-none">
+            <div class="text-subtitle1 text-weight-medium">Nova conta de aluno</div>
+            <q-space />
+            <q-btn icon="close" flat round dense :disable="creating" v-close-popup />
+          </q-card-section>
+
+          <q-card-section>
+            <div class="row q-col-gutter-sm">
+              <div class="col-12 col-md-6">
+                <q-input v-model="newEmail" type="email" label="Email" outlined dense />
+              </div>
+              <div class="col-12 col-md-6">
+                <q-input v-model="newPassword" :type="showPassword ? 'text' : 'password'" label="Password temporária" outlined dense>
+                  <template #append>
+                    <q-btn flat round dense :icon="showPassword ? 'visibility_off' : 'visibility'" @click="showPassword = !showPassword" />
+                  </template>
+                </q-input>
+              </div>
+              <div class="col-12">
+                <q-input v-model="newFullName" label="Nome (opcional)" outlined dense />
+              </div>
+              <div class="col-12 col-md-4">
+                <q-input v-model="newBirthDate" type="date" label="Data nascimento (opcional)" outlined dense />
+              </div>
+              <div class="col-6 col-md-4">
+                <q-input v-model.number="newWeightKg" type="number" label="Peso kg (opcional)" outlined dense />
+              </div>
+              <div class="col-6 col-md-4">
+                <q-input v-model.number="newHeightCm" type="number" label="Altura cm (opcional)" outlined dense />
+              </div>
+            </div>
+          </q-card-section>
+
+          <q-card-actions align="right" class="q-pa-md">
+            <q-btn flat no-caps color="grey-7" label="Cancelar" :disable="creating" v-close-popup />
+            <q-btn unelevated no-caps color="primary" label="Criar conta e associar" :loading="creating" @click="createStudentAccount" />
+          </q-card-actions>
+        </q-card>
+      </q-dialog>
+
       <q-list separator class="app-list">
         <q-item v-for="s in students" :key="s.user.id">
           <q-item-section avatar>
@@ -37,10 +85,21 @@ import { ref, onMounted } from 'vue'
 import { Dialog, Notify } from 'quasar'
 import { api } from 'src/api/client'
 import { useProfessionalStore } from 'src/stores/professional'
+import { useI18n } from 'vue-i18n'
 
+const { t } = useI18n()
 const students = ref([])
 const email = ref('')
 const adding = ref(false)
+const newEmail = ref('')
+const newPassword = ref('')
+const showPassword = ref(false)
+const newFullName = ref('')
+const newBirthDate = ref('')
+const newWeightKg = ref(null)
+const newHeightCm = ref(null)
+const creating = ref(false)
+const createDialogOpen = ref(false)
 const prof = useProfessionalStore()
 
 async function load () {
@@ -48,9 +107,26 @@ async function load () {
   students.value = data
 }
 
+function resetCreateForm () {
+  newEmail.value = ''
+  newPassword.value = ''
+  showPassword.value = false
+  newFullName.value = ''
+  newBirthDate.value = ''
+  newWeightKg.value = null
+  newHeightCm.value = null
+}
+
+function openCreateDialog () {
+  resetCreateForm()
+  createDialogOpen.value = true
+}
+
 function selectStudent (id) {
   prof.setSelectedStudent(id)
-  Notify.create({ message: 'Aluno selecionado no topo da página', position: 'top' })
+  const student = students.value.find(s => s.user.id === id)
+  const name = student?.profile?.full_name || student?.user?.email || `Aluno ${id}`
+  Notify.create({ message: `${name} selecionado`, position: 'top', timeout: 500 })
 }
 
 async function addStudent () {
@@ -68,11 +144,37 @@ async function addStudent () {
   }
 }
 
+async function createStudentAccount () {
+  if (!newEmail.value.trim() || !newPassword.value) return
+  creating.value = true
+  try {
+    await api.post('/professional/students/create-account', {
+      email: newEmail.value.trim(),
+      password: newPassword.value,
+      full_name: newFullName.value?.trim() || null,
+      birth_date: newBirthDate.value || null,
+      weight_kg: newWeightKg.value ?? null,
+      height_cm: newHeightCm.value ?? null,
+    })
+    createDialogOpen.value = false
+    resetCreateForm()
+    await load()
+    Notify.create({ type: 'positive', message: 'Conta criada e aluno associado' })
+  } catch (e) {
+    Notify.create({ type: 'negative', message: e.response?.data?.detail || 'Erro' })
+  } finally {
+    creating.value = false
+  }
+}
+
 function removeStudent (id) {
   Dialog.create({
     title: 'Remover aluno',
     message: 'Remover associação?',
-    cancel: true,
+    cancel: {
+      label: t('Cancelar'),
+      color: 'negative',
+    }
   }).onOk(async () => {
     await api.delete(`/professional/students/${id}`)
     if (prof.selectedStudentId === id) prof.setSelectedStudent(null)

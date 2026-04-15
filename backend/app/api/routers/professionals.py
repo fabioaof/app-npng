@@ -7,12 +7,18 @@ from starlette.responses import Response
 from sqlalchemy.orm import Session
 
 from app.api.deps import ensure_can_access_user, get_current_user, require_professional
+from app.core.security import get_password_hash
 from app.db.session import get_db
 from app.models.profile import Profile
 from app.models.user import User, UserRole
 from app.models.workout import LinkStatus, ProfessionalStudent
 from app.schemas.auth import UserPublic
-from app.schemas.professional import StudentLinkCreate, StudentProfileUpsert, StudentWithProfile
+from app.schemas.professional import (
+    StudentAccountCreate,
+    StudentLinkCreate,
+    StudentProfileUpsert,
+    StudentWithProfile,
+)
 from app.schemas.profile import ProfileRead
 from app.api.routers.profiles import profile_to_read
 
@@ -49,6 +55,7 @@ def list_students(
 
 @router.post("/students", response_model=StudentWithProfile, status_code=status.HTTP_201_CREATED)
 def link_student(
+    request: Request,
     body: StudentLinkCreate,
     current: Annotated[User, Depends(require_professional)],
     db: Session = Depends(get_db),
@@ -79,10 +86,59 @@ def link_student(
     db.add(link)
     db.commit()
     prof = db.query(Profile).filter(Profile.user_id == student.id).first()
-    pr = profile_to_read(prof) if prof else None
+    pr = profile_to_read(prof, request) if prof else None
     return StudentWithProfile(
         user=UserPublic.model_validate(student),
         profile=pr,
+        link_status=link.status.value,
+    )
+
+
+@router.post(
+    "/students/create-account",
+    response_model=StudentWithProfile,
+    status_code=status.HTTP_201_CREATED,
+)
+def create_student_account(
+    request: Request,
+    body: StudentAccountCreate,
+    current: Annotated[User, Depends(require_professional)],
+    db: Session = Depends(get_db),
+) -> StudentWithProfile:
+    email = body.email.lower()
+    if db.query(User).filter(User.email == email).first():
+        raise HTTPException(status_code=400, detail="Email já registado")
+
+    student = User(
+        email=email,
+        hashed_password=get_password_hash(body.password),
+        role=UserRole.user,
+    )
+    db.add(student)
+    db.flush()
+
+    prof = Profile(user_id=student.id)
+    data = body.model_dump(exclude_unset=True)
+    data.pop("email", None)
+    data.pop("password", None)
+    for k, v in data.items():
+        setattr(prof, k, v)
+    db.add(prof)
+    db.flush()
+
+    link = ProfessionalStudent(
+        professional_id=current.id,
+        student_id=student.id,
+        status=LinkStatus.active,
+    )
+    db.add(link)
+    db.commit()
+    db.refresh(student)
+    db.refresh(prof)
+
+    return StudentWithProfile(
+        user=UserPublic.model_validate(student),
+        profile=profile_to_read(prof, request),
         link_status=link.status.value,
     )
 
@@ -110,6 +166,7 @@ def unlink_student(
 
 @router.patch("/students/{student_id}/profile", response_model=ProfileRead)
 def upsert_student_profile(
+    request: Request,
     student_id: int,
     body: StudentProfileUpsert,
     current: Annotated[User, Depends(require_professional)],
@@ -126,4 +183,4 @@ def upsert_student_profile(
         setattr(prof, k, v)
     db.commit()
     db.refresh(prof)
-    return profile_to_read(prof)
+    return profile_to_read(prof, request)

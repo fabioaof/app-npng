@@ -10,7 +10,7 @@
             icon="arrow_back"
             class="workout-edit-back"
             aria-label="Voltar"
-            @click="router.push({ name: 'workouts' })"
+            @click="goBack"
           />
           <div class="col min-width-0 q-pl-xs">
             <div class="text-h6 text-weight-bold ellipsis" style="letter-spacing: -0.02em">
@@ -35,7 +35,7 @@
           dense
           rounded
         >
-          Seleciona um aluno no topo antes de registar o treino.
+          {{ t('Seleciona um aluno antes de registar o treino.') }}
         </q-banner>
 
         <q-form @submit="onSave" class="workout-edit-form">
@@ -279,7 +279,10 @@ import { Dialog, Notify } from 'quasar'
 import { api } from 'src/api/client'
 import { useAuthStore } from 'src/stores/auth'
 import { useProfessionalStore } from 'src/stores/professional'
+import { useI18n } from 'vue-i18n'
 
+
+const { t } = useI18n()
 const route = useRoute()
 const router = useRouter()
 const auth = useAuthStore()
@@ -288,11 +291,27 @@ const prof = useProfessionalStore()
 const isNew = computed(() => route.name === 'workout-new')
 const sessionId = computed(() => route.params.id)
 
+const cameFromCalendar = computed(() => route.query.from === 'calendar')
+
+const duplicateOfSessionId = computed(() => {
+  const v = route.query.duplicate_of
+  if (v == null) return null
+  const n = Number(v)
+  return Number.isFinite(n) && n > 0 ? n : null
+})
+
 const fromAppointmentId = computed(() => {
   const v = route.query.from_appointment
   if (v == null) return null
   const n = Number(v)
   return Number.isFinite(n) && n > 0 ? n : null
+})
+
+const fromPerformedAtLocal = computed(() => {
+  const v = route.query.performed_at
+  if (typeof v !== 'string') return null
+  // Espera-se o formato de input datetime-local: "YYYY-MM-DDTHH:mm"
+  return v.length >= 16 ? v.slice(0, 16) : null
 })
 
 const linkedAppointmentId = ref(null)
@@ -479,6 +498,21 @@ async function loadSession () {
         // Se a marcação não existir/permissões, ignora e cria treino normal.
         linkedAppointmentId.value = null
       }
+    } else if (fromPerformedAtLocal.value) {
+      performedAtLocal.value = fromPerformedAtLocal.value
+    }
+
+    if (duplicateOfSessionId.value) {
+      try {
+        const { data } = await api.get(`/workouts/sessions/${duplicateOfSessionId.value}`)
+        // Duplicar conteúdo (título/notas/sets) mas manter "data atual"
+        title.value = data.title || ''
+        notes.value = data.notes || ''
+        blockIdSeq = 0
+        blocks.value = sessionSetsToBlocks(data.sets || [])
+      } catch {
+        // Se não existir/permissões, mantém treino vazio.
+      }
     }
     ready.value = true
     return
@@ -534,7 +568,10 @@ function onDelete () {
   Dialog.create({
     title: 'Apagar treino',
     message: 'Tem a certeza?',
-    cancel: true,
+    cancel: {
+      label: t('Cancelar'),
+      color: 'negative',
+    }
   }).onOk(async () => {
     await api.delete(`/workouts/sessions/${sessionId.value}`)
     router.push({ name: 'workouts' })
@@ -560,6 +597,14 @@ watch(() => route.params.id, async () => {
     loading.value = false
   }
 })
+
+function goBack () {
+  if (cameFromCalendar.value) {
+    router.push({ name: 'calendar' })
+    return
+  }
+  router.push({ name: 'workouts' })
+}
 </script>
 
 <style scoped>

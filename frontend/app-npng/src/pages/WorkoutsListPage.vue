@@ -34,39 +34,58 @@
       </q-input>
 
       <q-banner v-if="auth.isProfessional && !prof.selectedStudentId" class="app-banner--warning q-mb-md" dense rounded>
-        {{ t('Seleciona um aluno no topo para listar os treinos desse aluno.') }}
+        {{ t('Seleciona um aluno para listar os treinos desse aluno.') }}
       </q-banner>
 
-      <div v-if="filteredSessions.length">
-        <div
-          v-for="s in filteredSessions"
-          :key="s.id"
-          class="app-workout-card row no-wrap items-center q-gutter-md cursor-pointer"
-          @click="goDetail(s.id)"
-        >
-          <div class="col">
-            <div class="text-subtitle1 text-weight-bold q-mb-xs" style="letter-spacing: -0.02em">
-              {{ s.title || 'Treino' }}
+      <div v-if="filteredSessions.length" class="workouts-list">
+        <div v-for="group in groupedSessions" :key="group.key" class="workouts-list__group">
+          <div class="workouts-list__group-head row items-center no-wrap">
+            <div class="text-caption text-weight-bold text-grey-8">
+              {{ group.label }}
             </div>
-            <div class="text-body2 text-grey-7">
-              {{ formatDateShort(s.performed_at) }} · {{ s.sets?.length || 0 }} sets
-            </div>
-            <div class="app-mini-progress">
-              <div class="app-mini-progress__fill" :style="{ width: progressPct(s) + '%' }" />
+            <q-space />
+            <div class="text-caption text-grey-7">
+              {{ group.items.length }} {{ group.items.length === 1 ? 'treino' : 'treinos' }}
             </div>
           </div>
-          <div class="col-auto row items-center no-wrap q-gutter-xs">
-            <q-btn
-              flat
-              dense
-              round
-              icon="content_copy"
-              color="grey-7"
-              aria-label="Duplicar"
-              @click.stop="duplicate(s)"
-            />
-            <div class="app-workout-card__thumb">
-              <q-icon name="fitness_center" size="36px" color="grey-7" />
+          <q-separator class="q-mt-sm q-mb-md" />
+
+          <div
+            v-for="s in group.items"
+            :key="s.id"
+            class="app-workout-card row no-wrap items-center q-gutter-md cursor-pointer"
+            @click="goDetail(s.id)"
+          >
+            <div class="col">
+              <div class="text-subtitle1 text-weight-bold q-mb-xs" style="letter-spacing: -0.02em">
+                {{ s.title || 'Treino' }}
+              </div>
+              <div class="text-body2 text-grey-7">
+                {{ formatDateShort(s.performed_at) }} · {{ s.sets?.length || 0 }} sets
+              </div>
+              <div class="app-mini-progress">
+                <div class="app-mini-progress__fill" :style="{ width: progressPct(s) + '%' }" />
+              </div>
+            </div>
+            <div class="col-auto row items-center no-wrap q-gutter-xs">
+              <q-btn
+                flat
+                dense
+                round
+                icon="content_copy"
+                color="grey-7"
+                aria-label="Duplicar"
+                @click.stop="duplicate(s)"
+              />
+              <q-btn
+                flat
+                dense
+                round
+                icon="delete"
+                color="negative"
+                aria-label="Eliminar"
+                @click.stop="onDelete(s)"
+              />
             </div>
           </div>
         </div>
@@ -126,7 +145,7 @@
 <script setup>
 import { ref, computed, watch, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
-import { Notify } from 'quasar'
+import { Dialog, Notify } from 'quasar'
 import { api } from 'src/api/client'
 import { useAuthStore } from 'src/stores/auth'
 import { useProfessionalStore } from 'src/stores/professional'
@@ -145,8 +164,20 @@ const studentsLoading = ref(false)
 const students = ref([])
 const dialogStudentId = ref(null)
 
+function studentSortKey (s) {
+  const name = s?.profile?.full_name?.trim()
+  const email = s?.user?.email?.trim()
+  return (name || email || '').toLowerCase()
+}
+
+const sortedStudents = computed(() =>
+  [...students.value].sort((a, b) =>
+    studentSortKey(a).localeCompare(studentSortKey(b), 'pt-PT', { sensitivity: 'base' }),
+  ),
+)
+
 const studentOptions = computed(() =>
-  students.value.map((s) => ({
+  sortedStudents.value.map((s) => ({
     label: s.user?.email + (s.profile?.full_name ? ` (${s.profile.full_name})` : ''),
     value: s.user?.id,
   })),
@@ -159,6 +190,47 @@ const filteredSessions = computed(() => {
     const title = (s.title || 'Treino').toLowerCase()
     const date = formatDateShort(s.performed_at).toLowerCase()
     return title.includes(q) || date.includes(q)
+  })
+})
+
+function monthKey (iso) {
+  if (!iso) return 'unknown'
+  const d = new Date(iso)
+  if (Number.isNaN(d.getTime())) return 'unknown'
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`
+}
+
+function monthLabel (iso) {
+  if (!iso) return 'Sem data'
+  const d = new Date(iso)
+  if (Number.isNaN(d.getTime())) return 'Sem data'
+  const month = d.toLocaleString('pt-PT', { month: 'long' })
+  const year = d.getFullYear()
+  return `${month.charAt(0).toUpperCase()}${month.slice(1)} ${year}`
+}
+
+const groupedSessions = computed(() => {
+  const list = filteredSessions.value || []
+  const map = new Map()
+  for (const s of list) {
+    const k = monthKey(s.performed_at)
+    if (!map.has(k)) {
+      map.set(k, { key: k, label: monthLabel(s.performed_at), items: [] })
+    }
+    map.get(k).items.push(s)
+  }
+
+  // Ordenação: mais recente primeiro; "unknown" no fim
+  const keys = [...map.keys()].sort((a, b) => {
+    if (a === 'unknown') return 1
+    if (b === 'unknown') return -1
+    return a < b ? 1 : -1
+  })
+
+  return keys.map((k) => {
+    const g = map.get(k)
+    g.items.sort((x, y) => new Date(y.performed_at).getTime() - new Date(x.performed_at).getTime())
+    return g
   })
 })
 
@@ -195,7 +267,7 @@ async function loadStudents () {
 async function onClickNew () {
   if (auth.isProfessional && !prof.selectedStudentId) {
     if (!students.value.length) await loadStudents()
-    dialogStudentId.value = null
+    dialogStudentId.value = sortedStudents.value[0]?.user?.id ?? null
     studentDialogOpen.value = true
     return
   }
@@ -227,10 +299,35 @@ async function load () {
 }
 
 async function duplicate (session) {
-  await api.post(`/workouts/sessions/${session.id}/duplicate`, {
-    performed_at: new Date().toISOString(),
+  const isoLocal = new Date().toISOString().slice(0, 16)
+  router.push({ name: 'workout-new', query: { duplicate_of: String(session.id), performed_at: isoLocal } })
+}
+
+function onDelete (session) {
+  Dialog.create({
+    title: 'Apagar treino',
+    message: 'Tem a certeza?',
+    cancel: {
+      label: t('Cancelar'),
+      color: 'negative',
+    }
+  }).onOk(async () => {
+    try {
+      await api.delete(`/workouts/sessions/${session.id}`)
+      sessions.value = sessions.value.filter((s) => s.id !== session.id)
+      Notify.create({
+        type: 'positive',
+        message: t('Treino eliminado.'),
+        position: 'top',
+      })
+    } catch {
+      Notify.create({
+        type: 'negative',
+        message: t('Não foi possível eliminar o treino.'),
+        position: 'top',
+      })
+    }
   })
-  await load()
 }
 
 function progressPct (s) {
@@ -241,3 +338,22 @@ function progressPct (s) {
 watch(() => prof.selectedStudentId, load)
 onMounted(load)
 </script>
+
+<style scoped>
+.workouts-list {
+  display: flex;
+  flex-direction: column;
+  /* gap: 22px; */
+}
+
+.workouts-list__group-head {
+  padding: 0 6px;
+}
+
+@media (max-width: 599px) {
+  .workouts-list {
+    padding-left: 18px;
+    padding-right: 12px;
+  }
+}
+</style>

@@ -1,11 +1,28 @@
 <template>
   <q-page class="calendar-page" padding>
     <div class="app-page-inner calendar-page__inner">
-      <div class="page-title q-mb-md">Agenda</div>
+      <div class="row items-center justify-between q-mb-md q-col-gutter-sm">
+        <div class="col">
+          <div class="page-title q-mb-none">Agenda</div>
+        </div>
+        <div v-if="auth.isProfessional" class="col-auto">
+          <q-btn
+            no-caps
+            rounded
+            :unelevated="!isAllAppointments"
+            :outline="isAllAppointments"
+            :color="isAllAppointments ? 'accent' : 'primary'"
+            :icon="isAllAppointments ? 'person' : 'filter_alt_off'"
+            :label="isAllAppointments ? 'Voltar ao aluno' : 'Ver todas as marcações'"
+            :disable="isAllAppointments && lastFilteredStudentId == null"
+            @click="toggleAllAppointments"
+          />
+        </div>
+      </div>
 
-      <q-banner v-if="auth.isProfessional && !prof.selectedStudentId" class="app-banner q-mb-md" dense rounded>
-        Selecione um aluno para ver o calendário desse aluno.
-      </q-banner>
+      <!-- <q-banner v-if="auth.isProfessional && !prof.selectedStudentId" class="app-banner q-mb-md" dense rounded>
+        {{ t('A ver todas as marcações (sem filtro de aluno). Para ver treinos no calendário, seleciona um aluno.') }}
+      </q-banner> -->
 
       <q-card flat class="calendar-page__shell">
         <q-date
@@ -18,6 +35,7 @@
           borderless
           :first-day-of-week="1"
           :locale="calendarLocale"
+          @navigation="onNavigation"
         />
 
         <div class="calendar-page__handle" aria-hidden="true" />
@@ -47,7 +65,30 @@
                   :class="'calendar-page__event--tone-' + (idx % 3)"
                   :to="{ name: 'workout-detail', params: { id: it.id } }"
                 >
-                  <div class="calendar-page__event-title">{{ it.title || 'Treino' }}</div>
+                  <div class="calendar-page__event-title row items-center no-wrap">
+                    <span class="ellipsis">{{ it.title || 'Treino' }}</span>
+                    <q-space />
+                    <q-btn
+                      flat
+                      dense
+                      round
+                      icon="content_copy"
+                      color="grey-7"
+                      aria-label="Duplicar"
+                      class="calendar-page__event-action"
+                      @click.stop.prevent="duplicateSession(it.id)"
+                    />
+                    <q-btn
+                      flat
+                      dense
+                      round
+                      icon="delete"
+                      color="negative"
+                      aria-label="Eliminar"
+                      class="calendar-page__event-action"
+                      @click.stop.prevent="deleteSession(it.id)"
+                    />
+                  </div>
                   <div class="calendar-page__event-caption">{{ it.caption }}</div>
                 </router-link>
               </template>
@@ -72,16 +113,60 @@
         </div>
       </q-card>
 
-      <q-page-sticky v-if="auth.isProfessional" position="bottom-right" :offset="fabOffset">
+      <q-page-sticky position="bottom-right" :offset="fabOffset">
         <q-btn
           fab
           icon="add"
           color="primary"
           class="calendar-page__fab"
-          @click="onClickNewAppointment"
-          aria-label="Nova marcação"
+          @click="onClickFab"
+          aria-label="Novo treino"
         />
       </q-page-sticky>
+
+      <q-dialog v-model="workoutStudentDialogOpen" position="bottom">
+        <q-card style="width: 100%; max-width: 100%; border-radius: 20px 20px 0 0">
+          <q-card-section class="q-pb-sm">
+            <div class="text-h6 text-weight-bold" style="letter-spacing: -0.02em">
+              Selecionar aluno
+            </div>
+            <p class="text-body2 text-grey-7 q-mb-none q-mt-xs">
+              Escolhe o aluno para iniciar o treino.
+            </p>
+          </q-card-section>
+
+          <q-card-section class="q-pt-sm">
+            <q-select
+              v-model="workoutDialogStudentId"
+              :options="studentOptions"
+              emit-value
+              map-options
+              label="Aluno"
+              outlined
+              dense
+              rounded
+              bg-color="white"
+              :loading="studentsLoading"
+              :disable="studentsLoading || !studentOptions.length"
+              menu-anchor="bottom middle"
+              menu-self="top middle"
+            />
+          </q-card-section>
+
+          <q-card-actions align="right" class="q-px-md q-pb-md">
+            <q-btn v-close-popup flat no-caps rounded color="grey-8" label="Cancelar" />
+            <q-btn
+              unelevated
+              no-caps
+              rounded
+              color="primary"
+              label="Continuar"
+              :disable="workoutDialogStudentId == null"
+              @click="confirmStudentAndGoNewWorkout"
+            />
+          </q-card-actions>
+        </q-card>
+      </q-dialog>
 
       <q-dialog v-model="studentDialogOpen" position="bottom">
         <q-card style="width: 100%; max-width: 100%; border-radius: 20px 20px 0 0">
@@ -236,17 +321,21 @@
 <script setup>
 import { ref, computed, watch, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
-import { Notify } from 'quasar'
+import { Dialog, Notify } from 'quasar'
 import { api } from 'src/api/client'
 import { useAuthStore } from 'src/stores/auth'
 import { useProfessionalStore } from 'src/stores/professional'
+import { useI18n } from 'vue-i18n'
 
+
+const { t } = useI18n()
 const auth = useAuthStore()
 const prof = useProfessionalStore()
 const router = useRouter()
 const sessions = ref([])
 const appointments = ref([])
 const proxyDate = ref(new Date().toISOString().slice(0, 10).replace(/-/g, '/'))
+const visibleYearMonth = ref({ year: new Date().getFullYear(), month: new Date().getMonth() + 1 })
 
 const calendarLocale = {
   days: 'Domingo_Segunda-feira_Terça-feira_Quarta-feira_Quinta-feira_Sexta-feira_Sábado'.split('_'),
@@ -255,12 +344,20 @@ const calendarLocale = {
   monthsShort: 'Jan_Fev_Mar_Abr_Mai_Jun_Jul_Ago_Set_Out_Nov_Dez'.split('_'),
 }
 
-const fabOffset = [18, 96]
+// Aproxima o FAB da barra de navegação inferior (MainLayout)
+const fabOffset = [18, 18]
 
 const studentsLoading = ref(false)
 const students = ref([])
 const studentDialogOpen = ref(false)
 const dialogStudentId = ref(null)
+const lastFilteredStudentId = ref(null)
+const workoutStudentDialogOpen = ref(false)
+const workoutDialogStudentId = ref(null)
+
+const isAllAppointments = computed(() =>
+  auth.isProfessional && prof.selectedStudentId == null,
+)
 
 const createDialogOpen = ref(false)
 const savingAppointment = ref(false)
@@ -274,8 +371,20 @@ const selectedAppointment = computed(() =>
   appointments.value.find((a) => a.id === selectedAppointmentId.value) || null,
 )
 
+function studentSortKey (s) {
+  const name = s?.profile?.full_name?.trim()
+  const email = s?.user?.email?.trim()
+  return (name || email || '').toLowerCase()
+}
+
+const sortedStudents = computed(() =>
+  [...students.value].sort((a, b) =>
+    studentSortKey(a).localeCompare(studentSortKey(b), 'pt-PT', { sensitivity: 'base' }),
+  ),
+)
+
 const studentOptions = computed(() =>
-  students.value.map((s) => ({
+  sortedStudents.value.map((s) => ({
     label: s.user?.email + (s.profile?.full_name ? ` (${s.profile.full_name})` : ''),
     value: s.user?.id,
   })),
@@ -432,15 +541,14 @@ function toIso (localStr) {
   return Number.isNaN(d.getTime()) ? new Date().toISOString() : d.toISOString()
 }
 
-function monthRangeForApi () {
-  const [y, m] = proxyDate.value.split('/').map(Number)
-  const start = new Date(y, m - 1, 1)
-  const end = new Date(y, m, 0, 23, 59, 59, 999)
+function monthRangeForApi (year, month) {
+  const start = new Date(year, month - 1, 1)
+  const end = new Date(year, month, 0, 23, 59, 59, 999)
   return { date_from: start.toISOString(), date_to: end.toISOString() }
 }
 
-async function load () {
-  const range = monthRangeForApi()
+async function load (year = visibleYearMonth.value.year, month = visibleYearMonth.value.month) {
+  const range = monthRangeForApi(year, month)
   if (auth.isProfessional && !prof.selectedStudentId) {
     sessions.value = []
   } else {
@@ -450,6 +558,19 @@ async function load () {
 
   const { data: ap } = await api.get('/appointments', { params: { ...scopeParamsAppointments(), ...range } })
   appointments.value = ap
+}
+
+function onNavigation ({ year, month }) {
+  // Navegar mês/ano no calendário não muda o proxyDate, então buscamos aqui.
+  if (year === visibleYearMonth.value.year && month === visibleYearMonth.value.month) return
+  visibleYearMonth.value = { year, month }
+  load(year, month)
+}
+
+function syncVisibleMonthFromProxyDate () {
+  const [y, m] = proxyDate.value.split('/').map(Number)
+  if (!y || !m) return
+  visibleYearMonth.value = { year: y, month: m }
 }
 
 async function loadStudents () {
@@ -465,14 +586,72 @@ async function loadStudents () {
   }
 }
 
-async function onClickNewAppointment () {
-  if (auth.isProfessional && !prof.selectedStudentId) {
-    if (!students.value.length) await loadStudents()
-    dialogStudentId.value = null
-    studentDialogOpen.value = true
+function goNewWorkout () {
+  const d = selectedDate.value
+  if (Number.isNaN(d.getTime())) {
+    Notify.create({ type: 'warning', message: t('Seleciona um dia para inicar um novo treino'), position: 'top' })
     return
   }
-  openCreateDialog()
+  const isoLocal = new Date(
+    d.getFullYear(),
+    d.getMonth(),
+    d.getDate(),
+    new Date().getHours(),
+    new Date().getMinutes(),
+  )
+    .toISOString()
+    .slice(0, 16)
+  router.push({ name: 'workout-new', query: { performed_at: isoLocal, from: 'calendar' } })
+}
+
+function duplicateSession (sessionId) {
+  // Igual à lista de treinos: duplicar usa data/hora atual
+  const isoLocal = new Date().toISOString().slice(0, 16)
+  router.push({ name: 'workout-new', query: { duplicate_of: String(sessionId), performed_at: isoLocal, from: 'calendar' } })
+}
+
+function deleteSession (sessionId) {
+  Dialog.create({
+    title: 'Apagar treino',
+    message: 'Tem a certeza?',
+    cancel: {
+      label: 'Cancelar',
+      color: 'negative',
+    },
+  }).onOk(async () => {
+    try {
+      await api.delete(`/workouts/sessions/${sessionId}`)
+      Notify.create({ type: 'positive', message: 'Treino eliminado.', position: 'top' })
+      await load()
+    } catch {
+      Notify.create({ type: 'negative', message: 'Não foi possível eliminar o treino.', position: 'top' })
+    }
+  })
+}
+
+function onClickFab () {
+  if (!proxyDate.value) {
+    Notify.create({ type: 'warning', message: t('Seleciona um dia para inicar um novo treino'), position: 'top' })
+    return
+  }
+  if (auth.isProfessional && prof.selectedStudentId == null) {
+    workoutDialogStudentId.value = sortedStudents.value[0]?.user?.id ?? null
+    workoutStudentDialogOpen.value = true
+    return
+  }
+  goNewWorkout()
+}
+
+function toggleAllAppointments () {
+  // Toggle: 1º clique limpa e guarda; 2º clique repõe o aluno anterior
+  if (prof.selectedStudentId != null) {
+    lastFilteredStudentId.value = prof.selectedStudentId
+    prof.setSelectedStudent(null)
+    return
+  }
+  if (lastFilteredStudentId.value != null) {
+    prof.setSelectedStudent(lastFilteredStudentId.value)
+  }
 }
 
 function openCreateDialog () {
@@ -494,6 +673,16 @@ function confirmStudentAndOpenCreate () {
   prof.setSelectedStudent(dialogStudentId.value)
   studentDialogOpen.value = false
   openCreateDialog()
+}
+
+function confirmStudentAndGoNewWorkout () {
+  if (workoutDialogStudentId.value == null) {
+    Notify.create({ type: 'warning', message: 'Escolhe um aluno.', position: 'top' })
+    return
+  }
+  prof.setSelectedStudent(workoutDialogStudentId.value)
+  workoutStudentDialogOpen.value = false
+  goNewWorkout()
 }
 
 async function createAppointment () {
@@ -537,9 +726,30 @@ function goConvertSelected () {
   router.push({ name: 'workout-new', query: { from_appointment: String(selectedAppointment.value.id) } })
 }
 
-watch(() => prof.selectedStudentId, load)
-watch(proxyDate, load)
-onMounted(load)
+watch(() => prof.selectedStudentId, () => load())
+watch(studentDialogOpen, (open) => {
+  if (!open) return
+  if (dialogStudentId.value == null) {
+    dialogStudentId.value = sortedStudents.value[0]?.user?.id ?? null
+  }
+})
+watch(workoutStudentDialogOpen, (open) => {
+  if (!open) return
+  if (workoutDialogStudentId.value == null) {
+    workoutDialogStudentId.value = sortedStudents.value[0]?.user?.id ?? null
+  }
+})
+watch(proxyDate, () => {
+  const [y, m] = proxyDate.value.split('/').map(Number)
+  if (!y || !m) return
+  if (y === visibleYearMonth.value.year && m === visibleYearMonth.value.month) return
+  visibleYearMonth.value = { year: y, month: m }
+  load(y, m)
+})
+onMounted(() => {
+  syncVisibleMonthFromProxyDate()
+  load()
+})
 onMounted(() => {
   if (auth.isProfessional) loadStudents()
 })
@@ -705,6 +915,10 @@ onMounted(() => {
   font-weight: 700;
   letter-spacing: -0.02em;
   color: var(--app-text);
+}
+
+.calendar-page__event-action {
+  margin-right: -6px;
 }
 
 .calendar-page__event-caption {

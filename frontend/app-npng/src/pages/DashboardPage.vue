@@ -12,14 +12,14 @@
               👋 {{ t('Olá,') }} <span class="text-weight-medium">{{ greetName }}</span>
             </div>
             <div class="app-dash-greet-card__line2">
-              Bem-vindo
+              {{ t('Bem-vindo') }}
             </div>
           </div>
         </div>
       </div>
 
       <div v-if="auth.isProfessional && !prof.selectedStudentId" class="text-body2 text-grey-7 q-mb-md">
-        {{ t('Seleciona um aluno no topo para ver os dados dele, ou vê os teus dados sem seleção.') }}
+        {{ t('Seleciona um aluno para ver os dados.') }}
       </div>
 
       <!-- Grelha 2×2: anéis + barra + sparkline -->
