@@ -13,3 +13,6 @@ backend/**/__pycache__/
 .env
 .env.local
 backend/.env
+
+# Agent AI
+/agent-reports

@@ -69,6 +69,17 @@ def list_sessions(
     user_id: int | None = Query(None, description="Filtrar por utilizador (profissionais)"),
     date_from: datetime | None = Query(None),
     date_to: datetime | None = Query(None),
+    exercise_id: int | None = Query(
+        None,
+        ge=1,
+        description="Apenas sessões que incluem este exercício",
+    ),
+    limit: int | None = Query(
+        None,
+        ge=1,
+        le=100,
+        description="Máximo de sessões (mais recentes primeiro)",
+    ),
 ) -> list[WorkoutSessionRead]:
     target = current.id if user_id is None else user_id
     if user_id is not None:
@@ -78,7 +89,18 @@ def list_sessions(
         q = q.filter(WorkoutSession.performed_at >= date_from)
     if date_to:
         q = q.filter(WorkoutSession.performed_at <= date_to)
-    sessions = q.order_by(WorkoutSession.performed_at.desc()).all()
+    if exercise_id is not None:
+        q = q.filter(
+            WorkoutSession.id.in_(
+                db.query(WorkoutSet.session_id)
+                .filter(WorkoutSet.exercise_id == exercise_id)
+                .distinct()
+            )
+        )
+    q = q.order_by(WorkoutSession.performed_at.desc())
+    if limit is not None:
+        q = q.limit(limit)
+    sessions = q.all()
     return [_session_read(s) for s in sessions]
 
 

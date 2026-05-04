@@ -17,6 +17,17 @@
               {{ isNew ? 'Novo treino' : (title || 'Treino') }}
             </div>
           </div>
+          <q-btn
+            v-if="!isNew"
+            flat
+            dense
+            no-caps
+            rounded
+            color="negative"
+            label="Apagar"
+            class="workout-edit-top-delete"
+            @click="onDelete"
+          />
         </div>
         <div v-if="!isNew" class="row q-gutter-sm q-mb-lg">
           <q-chip outline dense class="app-chip-pill text-grey-8">
@@ -38,7 +49,7 @@
           {{ t('Seleciona um aluno antes de registar o treino.') }}
         </q-banner>
 
-        <q-form @submit="onSave" class="workout-edit-form">
+        <q-form ref="workoutFormRef" class="workout-edit-form" @submit="onSave">
           <div class="workout-edit-card q-mb-md">
             <div class="workout-edit-card__label">Sessão</div>
             <div class="row q-col-gutter-md">
@@ -77,13 +88,11 @@
             />
           </div>
 
-          <div class="text-subtitle2 text-weight-bold text-grey-9 q-mb-sm">Exercícios</div>
-
           <div
             v-if="!blocks.length"
             class="text-body2 text-grey-7 q-mb-md workout-edit-empty"
           >
-            Ainda não há exercícios. Clica em «Adicionar exercício».
+            {{ t('Ainda não há exercícios. Clica em «Adicionar exercício».') }}
           </div>
 
           <div
@@ -93,21 +102,42 @@
           >
             <div class="workout-block__head row items-center justify-between q-mb-sm">
               <span class="workout-block__label">Exercício {{ bIdx + 1 }}</span>
-              <q-btn
-                flat
-                dense
-                no-caps
-                color="grey-7"
-                icon="close"
-                label="Remover"
-                rounded
-                @click="removeBlock(bIdx)"
-              />
+              <div class="row items-center no-wrap q-gutter-xs">
+                <q-btn
+                  flat
+                  dense
+                  no-caps
+                  color="grey-7"
+                  icon="history"
+                  :label="compactBlockToolbar ? undefined : 'Histórico'"
+                  rounded
+                  class="workout-block__head-history"
+                  :aria-label="'Histórico de ' + exerciseName(block.exercise_id)"
+                  @click="openExerciseHistory(block)"
+                />
+                <q-btn
+                  flat
+                  dense
+                  no-caps
+                  color="grey-7"
+                  icon="close"
+                  label="Remover"
+                  rounded
+                  @click="removeBlock(bIdx)"
+                />
+              </div>
             </div>
 
-            <div class="workout-exercise-title text-subtitle1 text-weight-bold text-grey-9 q-mb-sm">
+            <button
+              type="button"
+              class="workout-exercise-title text-subtitle1 text-weight-bold text-grey-9 q-mb-sm workout-exercise-title--pick"
+              :class="{ 'workout-exercise-title--pick-active': block.id === selectedBlockIdForSet }"
+              :aria-pressed="block.id === selectedBlockIdForSet"
+              :aria-label="'Selecionar ' + exerciseName(block.exercise_id) + ' para adicionar sets'"
+              @click="selectBlockForAddSet(block)"
+            >
               {{ exerciseName(block.exercise_id) }}
-            </div>
+            </button>
 
             <div class="workout-sets-stack">
               <div
@@ -174,46 +204,6 @@
               </div>
             </div>
           </div>
-
-          <div class="row q-col-gutter-xs q-mt-md q-mb-lg">
-            <div v-if="blocks.length" class="col-6">
-              <q-btn
-                outline
-                no-caps
-                color="grey-8"
-                label="Adicionar set"
-                rounded
-                class="workout-add-btn"
-                @click="addSetToLastBlock"
-              />
-            </div>
-            <div :class="blocks.length ? 'col-6' : 'col-12'">
-              <q-btn
-                outline
-                no-caps
-                color="grey-8"
-                label="Adicionar exercício"
-                rounded
-                class="workout-add-btn"
-                @click="openExerciseDialog"
-              />
-            </div>
-          </div>
-
-          <div class="row q-gutter-sm q-mt-md items-center justify-end">
-            <q-btn flat no-caps rounded color="grey-8" label="Cancelar" :to="{ name: 'workouts' }" />
-            <q-btn v-if="!isNew" flat no-caps rounded label="Apagar" color="negative" @click="onDelete" />
-            <q-btn
-              type="submit"
-              unelevated
-              no-caps
-              color="primary"
-              padding="sm md"
-              rounded
-              label="Guardar treino"
-              :loading="saving"
-            />
-          </div>
         </q-form>
       </div>
     </template>
@@ -224,6 +214,70 @@
       </div>
     </template>
     <q-inner-loading :showing="loading" />
+
+    <q-page-sticky
+      v-if="ready && !loading"
+      position="bottom"
+      expand
+      class="workout-edit-sticky-wrap"
+    >
+      <div class="workout-edit-sticky-actions">
+        <div class="app-page-inner workout-edit-sticky-actions__inner">
+          <div class="workout-edit-sticky-toolbar row no-wrap items-center">
+            <q-btn
+              outline
+              dense
+              no-caps
+              color="grey-8"
+              rounded
+              :icon="compactWorkoutToolbar ? 'fitness_center' : undefined"
+              :label="compactWorkoutToolbar ? undefined : 'Adicionar exercício'"
+              aria-label="Adicionar exercício"
+              class="workout-edit-sticky-toolbar__add"
+              padding="xs sm"
+              @click="openExerciseDialog"
+            />
+            <q-btn
+              outline
+              dense
+              no-caps
+              color="grey-8"
+              rounded
+              :icon="compactWorkoutToolbar ? 'exposure_plus_1' : undefined"
+              :label="compactWorkoutToolbar ? undefined : 'Adicionar set'"
+              aria-label="Adicionar set"
+              class="workout-edit-sticky-toolbar__add"
+              padding="xs sm"
+              @click="addSetToSelectedBlock"
+            />
+            <q-space />
+            <q-btn
+              flat
+              dense
+              no-caps
+              rounded
+              color="grey-8"
+              label="Cancelar"
+              padding="xs sm"
+              class="workout-edit-sticky-toolbar__text"
+              @click="goBack"
+            />
+            <q-btn
+              unelevated
+              dense
+              no-caps
+              color="primary"
+              padding="xs sm"
+              rounded
+              :label="saveWorkoutLabel"
+              class="workout-edit-sticky-save"
+              :loading="saving"
+              @click="submitWorkoutForm"
+            />
+          </div>
+        </div>
+      </div>
+    </q-page-sticky>
 
     <q-dialog
       v-model="exerciseDialogOpen"
@@ -269,13 +323,71 @@
         </q-card-actions>
       </q-card>
     </q-dialog>
+
+    <q-dialog
+      v-model="exerciseHistoryDialogOpen"
+      position="bottom"
+      class="workout-exercise-dialog"
+    >
+      <q-card class="workout-exercise-dialog__card workout-history-dialog__card">
+        <q-card-section class="q-pb-sm">
+          <div class="text-h6 text-weight-bold" style="letter-spacing: -0.02em">
+            Histórico
+          </div>
+          <p class="text-body2 text-grey-7 q-mb-none q-mt-xs">
+            {{ exerciseHistoryExerciseId != null ? exerciseName(exerciseHistoryExerciseId) : '' }}
+          </p>
+        </q-card-section>
+        <q-card-section class="q-pt-none workout-history-body">
+          <q-inner-loading :showing="exerciseHistoryLoading" />
+          <template v-if="!exerciseHistoryLoading">
+            <div
+              v-if="!historySessions.length"
+              class="text-body2 text-grey-7 text-center q-py-lg"
+            >
+              Ainda não há treinos anteriores com este exercício.
+            </div>
+            <q-timeline
+              v-else
+              color="primary"
+              layout="comfortable"
+              class="workout-history-timeline"
+            >
+              <q-timeline-entry
+                v-for="s in historySessions"
+                :key="s.id"
+                :title="s.title || 'Treino'"
+                :subtitle="formatHistorySessionDate(s.performed_at)"
+                icon="fitness_center"
+              >
+                <div class="workout-history-sets text-body2 text-grey-9">
+                  <div
+                    v-for="(row, i) in historySetsForSession(s)"
+                    :key="row.id ?? i"
+                    class="workout-history-set-line"
+                  >
+                    Set {{ i + 1 }}: {{ row.weight_kg }} kg × {{ row.reps }} reps
+                    <template v-if="row.rest_seconds != null">
+                      · {{ row.rest_seconds }} s descanso
+                    </template>
+                  </div>
+                </div>
+              </q-timeline-entry>
+            </q-timeline>
+          </template>
+        </q-card-section>
+        <q-card-actions align="right" class="q-px-md q-pb-md">
+          <q-btn v-close-popup flat no-caps rounded color="grey-8" label="Fechar" />
+        </q-card-actions>
+      </q-card>
+    </q-dialog>
   </q-page>
 </template>
 
 <script setup>
 import { ref, computed, onMounted, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
-import { Dialog, Notify } from 'quasar'
+import { Dialog, Notify, useQuasar } from 'quasar'
 import { api } from 'src/api/client'
 import { useAuthStore } from 'src/stores/auth'
 import { useProfessionalStore } from 'src/stores/professional'
@@ -283,10 +395,21 @@ import { useI18n } from 'vue-i18n'
 
 
 const { t } = useI18n()
+const $q = useQuasar()
 const route = useRoute()
 const router = useRouter()
 const auth = useAuthStore()
 const prof = useProfessionalStore()
+
+/** Ecrã estreito: barra numa linha com ícones + «Guardar» curto */
+const compactWorkoutToolbar = computed(() => $q.screen.lt.md)
+
+/** Cabeçalho do bloco: só ícone no histórico em ecrãs muito estreitos */
+const compactBlockToolbar = computed(() => $q.screen.lt.sm)
+
+const saveWorkoutLabel = computed(() =>
+  compactWorkoutToolbar.value ? 'Guardar' : 'Guardar treino',
+)
 
 const isNew = computed(() => route.name === 'workout-new')
 const sessionId = computed(() => route.params.id)
@@ -333,6 +456,8 @@ function createBlock (exerciseId) {
 const loading = ref(true)
 const saving = ref(false)
 const ready = ref(false)
+/** @type {import('vue').Ref<import('quasar').QForm | null>} */
+const workoutFormRef = ref(null)
 const performedAtLocal = ref('')
 const title = ref('')
 const notes = ref('')
@@ -342,6 +467,19 @@ const exercises = ref([])
 
 const exerciseDialogOpen = ref(false)
 const dialogExerciseId = ref(null)
+
+/** Dono da sessão em edição (histórico com o mesmo âmbito do treino) */
+const sessionOwnerUserId = ref(null)
+/** Treino duplicado: user_id da fonte quando ainda não há aluno selecionado */
+const duplicateSourceUserId = ref(null)
+
+const exerciseHistoryDialogOpen = ref(false)
+const exerciseHistoryLoading = ref(false)
+const exerciseHistoryExerciseId = ref(null)
+const historySessions = ref([])
+
+/** Bloco onde «Adicionar set» aplica; escolhido ao clicar no nome do exercício */
+const selectedBlockIdForSet = ref(null)
 
 const exerciseOptions = computed(() =>
   exercises.value.map((e) => ({ label: e.name, value: e.id })),
@@ -393,16 +531,33 @@ function confirmAddExerciseFromDialog () {
     })
     return
   }
-  blocks.value.push(createBlock(dialogExerciseId.value))
+  const block = createBlock(dialogExerciseId.value)
+  blocks.value.push(block)
+  selectedBlockIdForSet.value = block.id
   exerciseDialogOpen.value = false
   dialogExerciseId.value = null
+}
+
+function syncSelectedBlockIdForSet () {
+  if (!blocks.value.length) {
+    selectedBlockIdForSet.value = null
+    return
+  }
+  const ids = new Set(blocks.value.map((b) => b.id))
+  if (selectedBlockIdForSet.value == null || !ids.has(selectedBlockIdForSet.value)) {
+    selectedBlockIdForSet.value = blocks.value[blocks.value.length - 1].id
+  }
+}
+
+function selectBlockForAddSet (block) {
+  selectedBlockIdForSet.value = block.id
 }
 
 function addSetToBlock (block) {
   block.sets.push(defaultSetRow())
 }
 
-function addSetToLastBlock () {
+function addSetToSelectedBlock () {
   if (!blocks.value.length) {
     Notify.create({
       type: 'info',
@@ -411,7 +566,17 @@ function addSetToLastBlock () {
     })
     return
   }
-  addSetToBlock(blocks.value[blocks.value.length - 1])
+  syncSelectedBlockIdForSet()
+  const block = blocks.value.find((b) => b.id === selectedBlockIdForSet.value)
+  if (!block) {
+    Notify.create({
+      type: 'warning',
+      message: 'Clica no nome do exercício onde queres o novo set.',
+      position: 'top',
+    })
+    return
+  }
+  addSetToBlock(block)
 }
 
 function removeSetFromBlock (block, idx) {
@@ -421,6 +586,79 @@ function removeSetFromBlock (block, idx) {
 
 function removeBlock (idx) {
   blocks.value.splice(idx, 1)
+  syncSelectedBlockIdForSet()
+}
+
+function historyScopeParams () {
+  if (!isNew.value) {
+    if (auth.isProfessional && sessionOwnerUserId.value != null) {
+      return { user_id: sessionOwnerUserId.value }
+    }
+    return {}
+  }
+  if (auth.isProfessional) {
+    const uid = prof.selectedStudentId ?? duplicateSourceUserId.value
+    if (uid == null) return null
+    return { user_id: uid }
+  }
+  return {}
+}
+
+function formatHistorySessionDate (iso) {
+  if (!iso) return '—'
+  const d = new Date(iso)
+  if (Number.isNaN(d.getTime())) return '—'
+  return d.toLocaleString('pt-PT', {
+    weekday: 'short',
+    day: 'numeric',
+    month: 'short',
+    year: 'numeric',
+    hour: '2-digit',
+    minute: '2-digit',
+  })
+}
+
+function historySetsForSession (session) {
+  const eid = exerciseHistoryExerciseId.value
+  if (eid == null || !session.sets?.length) return []
+  return [...session.sets]
+    .filter((x) => x.exercise_id === eid)
+    .sort((a, b) => a.set_index - b.set_index)
+}
+
+async function openExerciseHistory (block) {
+  const scope = historyScopeParams()
+  if (scope === null) {
+    Notify.create({
+      type: 'warning',
+      message: 'Para ver o histórico, seleciona um aluno (ou duplica um treino existente).',
+      position: 'top',
+    })
+    return
+  }
+  exerciseHistoryExerciseId.value = block.exercise_id
+  exerciseHistoryDialogOpen.value = true
+  exerciseHistoryLoading.value = true
+  historySessions.value = []
+  try {
+    const { data } = await api.get('/workouts/sessions', {
+      params: {
+        ...scope,
+        exercise_id: block.exercise_id,
+        limit: 50,
+      },
+    })
+    const curId = !isNew.value && sessionId.value ? Number(sessionId.value) : null
+    historySessions.value = (data || []).filter((s) => s.id !== curId)
+  } catch {
+    Notify.create({
+      type: 'negative',
+      message: 'Não foi possível carregar o histórico.',
+      position: 'top',
+    })
+  } finally {
+    exerciseHistoryLoading.value = false
+  }
 }
 
 /**
@@ -483,6 +721,8 @@ async function loadExercises () {
 
 async function loadSession () {
   if (isNew.value) {
+    sessionOwnerUserId.value = null
+    duplicateSourceUserId.value = null
     performedAtLocal.value = new Date().toISOString().slice(0, 16)
     blockIdSeq = 0
     blocks.value = []
@@ -510,20 +750,28 @@ async function loadSession () {
         notes.value = data.notes || ''
         blockIdSeq = 0
         blocks.value = sessionSetsToBlocks(data.sets || [])
+        duplicateSourceUserId.value = data.user_id ?? null
       } catch {
         // Se não existir/permissões, mantém treino vazio.
       }
     }
+    syncSelectedBlockIdForSet()
     ready.value = true
     return
   }
   const { data } = await api.get(`/workouts/sessions/${sessionId.value}`)
+  sessionOwnerUserId.value = data.user_id ?? null
   performedAtLocal.value = data.performed_at.slice(0, 16)
   title.value = data.title || ''
   notes.value = data.notes || ''
   blockIdSeq = 0
   blocks.value = sessionSetsToBlocks(data.sets || [])
+  syncSelectedBlockIdForSet()
   ready.value = true
+}
+
+function submitWorkoutForm () {
+  workoutFormRef.value?.submit()
 }
 
 async function onSave () {
@@ -609,7 +857,59 @@ function goBack () {
 
 <style scoped>
 .workout-edit-inner {
-  padding-bottom: env(safe-area-inset-bottom, 12px);
+  padding-bottom: calc(72px + env(safe-area-inset-bottom, 12px));
+}
+
+.workout-edit-sticky-wrap {
+  z-index: 2000;
+}
+
+.workout-edit-sticky-actions {
+  width: 100%;
+  padding: 0;
+  background: rgba(250, 249, 247, 0.97);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  border-top: 1px solid var(--app-border);
+  box-shadow: 0 -6px 24px rgba(15, 23, 42, 0.08);
+}
+
+.workout-edit-sticky-actions__inner {
+  max-width: 720px;
+  margin-left: auto;
+  margin-right: auto;
+  padding: 10px 0 calc(10px + env(safe-area-inset-bottom, 0px));
+}
+
+.workout-edit-sticky-toolbar {
+  width: 100%;
+  min-height: 44px;
+  column-gap: 6px;
+  padding: 0 16px;
+}
+
+.workout-edit-sticky-toolbar__add {
+  flex: 1 1 0;
+  min-width: 0;
+}
+
+.workout-edit-sticky-toolbar__text {
+  flex-shrink: 0;
+}
+
+.workout-edit-sticky-save {
+  flex-shrink: 0;
+}
+
+@media (min-width: 1024px) {
+  .workout-edit-sticky-toolbar {
+    column-gap: 10px;
+  }
+}
+
+.workout-edit-top-delete {
+  flex-shrink: 0;
+  font-size: 0.8rem;
 }
 
 .workout-edit-top {
@@ -618,10 +918,6 @@ function goBack () {
 
 .min-width-0 {
   min-width: 0;
-}
-
-.workout-add-btn {
-  width: 100%;
 }
 
 .workout-edit-empty {
@@ -635,6 +931,31 @@ function goBack () {
   width: 100%;
   max-width: 100%;
   border-radius: 20px 20px 0 0;
+}
+
+.workout-history-dialog__card {
+  max-height: min(78vh, 640px);
+  display: flex;
+  flex-direction: column;
+}
+
+.workout-history-body {
+  position: relative;
+  min-height: 100px;
+  overflow: auto;
+  flex: 1 1 auto;
+}
+
+.workout-history-timeline {
+  padding-top: 4px;
+}
+
+.workout-history-set-line + .workout-history-set-line {
+  margin-top: 4px;
+}
+
+.workout-block__head-history {
+  flex-shrink: 0;
 }
 
 .workout-edit-form {
@@ -664,6 +985,33 @@ function goBack () {
   letter-spacing: 0.08em;
   text-transform: uppercase;
   color: var(--app-text-muted);
+}
+
+.workout-exercise-title--pick {
+  display: block;
+  width: 100%;
+  text-align: left;
+  font: inherit;
+  font-family: inherit;
+  border: none;
+  background: transparent;
+  cursor: pointer;
+  border-radius: 12px;
+  padding: 6px 8px;
+  margin-left: -8px;
+  margin-right: -8px;
+  box-sizing: border-box;
+  transition: background 0.15s ease, box-shadow 0.15s ease;
+}
+
+.workout-exercise-title--pick:focus-visible {
+  outline: 2px solid var(--app-accent-mid);
+  outline-offset: 1px;
+}
+
+.workout-exercise-title--pick-active {
+  background: var(--app-accent-soft);
+  box-shadow: inset 0 0 0 1px var(--app-border);
 }
 
 .workout-sets-stack {

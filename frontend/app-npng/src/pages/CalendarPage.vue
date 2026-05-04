@@ -319,7 +319,7 @@
 </template>
 
 <script setup>
-import { ref, computed, watch, onMounted } from 'vue'
+import { ref, computed, watch, onMounted, nextTick } from 'vue'
 import { useRouter } from 'vue-router'
 import { Dialog, Notify } from 'quasar'
 import { api } from 'src/api/client'
@@ -335,6 +335,13 @@ const router = useRouter()
 const sessions = ref([])
 const appointments = ref([])
 const proxyDate = ref(new Date().toISOString().slice(0, 10).replace(/-/g, '/'))
+/** Última data válida: o QDate pode pôr o v-model a null ao clicar outra vez no mesmo dia. */
+const lastStableProxyDate = ref(proxyDate.value)
+const effectiveProxyDate = computed(() => {
+  const v = proxyDate.value
+  if (v != null && v !== '') return v
+  return lastStableProxyDate.value
+})
 const visibleYearMonth = ref({ year: new Date().getFullYear(), month: new Date().getMonth() + 1 })
 
 const calendarLocale = {
@@ -416,10 +423,10 @@ function scopeParamsAppointments () {
   return {}
 }
 
-const selectedDay = computed(() => proxyDate.value.replace(/\//g, '-'))
+const selectedDay = computed(() => effectiveProxyDate.value.replace(/\//g, '-'))
 
 const selectedDate = computed(() => {
-  const [y, m, d] = proxyDate.value.split('/').map(Number)
+  const [y, m, d] = effectiveProxyDate.value.split('/').map(Number)
   return new Date(y, m - 1, d)
 })
 
@@ -431,7 +438,7 @@ const weekdayShort = computed(() =>
 
 const isSelectedToday = computed(() => {
   const t = new Date()
-  const [y, m, d] = proxyDate.value.split('/').map(Number)
+  const [y, m, d] = effectiveProxyDate.value.split('/').map(Number)
   return t.getFullYear() === y && t.getMonth() + 1 === m && t.getDate() === d
 })
 
@@ -568,7 +575,9 @@ function onNavigation ({ year, month }) {
 }
 
 function syncVisibleMonthFromProxyDate () {
-  const [y, m] = proxyDate.value.split('/').map(Number)
+  const v = effectiveProxyDate.value
+  if (!v || typeof v !== 'string') return
+  const [y, m] = v.split('/').map(Number)
   if (!y || !m) return
   visibleYearMonth.value = { year: y, month: m }
 }
@@ -630,7 +639,7 @@ function deleteSession (sessionId) {
 }
 
 function onClickFab () {
-  if (!proxyDate.value) {
+  if (!effectiveProxyDate.value) {
     Notify.create({ type: 'warning', message: t('Seleciona um dia para inicar um novo treino'), position: 'top' })
     return
   }
@@ -739,8 +748,17 @@ watch(workoutStudentDialogOpen, (open) => {
     workoutDialogStudentId.value = sortedStudents.value[0]?.user?.id ?? null
   }
 })
-watch(proxyDate, () => {
-  const [y, m] = proxyDate.value.split('/').map(Number)
+watch(proxyDate, (val) => {
+  if (val != null && val !== '') {
+    lastStableProxyDate.value = val
+  } else {
+    void nextTick(() => {
+      proxyDate.value = lastStableProxyDate.value
+    })
+  }
+  const src = effectiveProxyDate.value
+  if (!src || typeof src !== 'string') return
+  const [y, m] = src.split('/').map(Number)
   if (!y || !m) return
   if (y === visibleYearMonth.value.year && m === visibleYearMonth.value.month) return
   visibleYearMonth.value = { year: y, month: m }
