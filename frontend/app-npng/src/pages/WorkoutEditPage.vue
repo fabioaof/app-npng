@@ -19,11 +19,10 @@
           </div>
           <q-btn
             v-if="!isNew"
-            flat
+            unelevated
             dense
             no-caps
             rounded
-            color="negative"
             label="Apagar"
             class="workout-edit-top-delete"
             @click="onDelete"
@@ -910,6 +909,13 @@ function goBack () {
 .workout-edit-top-delete {
   flex-shrink: 0;
   font-size: 0.8rem;
+  background: #b8877a !important;
+  color: #fff !important;
+}
+
+.workout-edit-top-delete :deep(.q-btn__content),
+.workout-edit-top-delete :deep(.q-icon) {
+  color: #fff;
 }
 
 .workout-edit-top {
