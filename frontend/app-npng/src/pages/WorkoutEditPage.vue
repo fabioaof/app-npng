@@ -103,13 +103,13 @@
               <span class="workout-block__label">Exercício {{ bIdx + 1 }}</span>
               <div class="row items-center no-wrap q-gutter-xs">
                 <q-btn
-                  flat
+                  unelevated
                   dense
                   no-caps
-                  color="grey-7"
+                  color="light-blue"
                   icon="history"
                   :label="compactBlockToolbar ? undefined : 'Histórico'"
-                  rounded
+                  round
                   class="workout-block__head-history"
                   :aria-label="'Histórico de ' + exerciseName(block.exercise_id)"
                   @click="openExerciseHistory(block)"
@@ -119,8 +119,7 @@
                   rounded
                   dense
                   no-caps
-                  icon="close"
-                  label="Remover"
+                  icon="delete"
                   class="delete-exercise-btn"
                   @click="removeBlock(bIdx)"
                 />
