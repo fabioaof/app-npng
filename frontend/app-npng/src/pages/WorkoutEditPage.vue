@@ -119,10 +119,10 @@
                   flat
                   dense
                   no-caps
-                  color="grey-7"
                   icon="close"
                   label="Remover"
                   rounded
+                  class="workout-block__remove-exercise"
                   @click="removeBlock(bIdx)"
                 />
               </div>
@@ -957,6 +957,10 @@ function goBack () {
 
 .workout-block__head-history {
   flex-shrink: 0;
+}
+
+.workout-block__remove-exercise {
+  color: #b8877a;
 }
 
 .workout-edit-form {
