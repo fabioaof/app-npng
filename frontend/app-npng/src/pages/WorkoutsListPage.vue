@@ -9,10 +9,10 @@
           <q-btn
             unelevated
             no-caps
-            color="primary"
+            rounded
             label="Novo"
             padding="sm md"
-            rounded
+            color="positive"
             @click="onClickNew"
           />
         </div>
@@ -130,7 +130,7 @@
               unelevated
               no-caps
               rounded
-              color="primary"
+              color="positive"
               label="Continuar"
               :disable="dialogStudentId == null"
               @click="confirmStudentAndGoNew"

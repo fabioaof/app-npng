@@ -10,8 +10,8 @@
           </div>
           <div class="col-12">
             <div class="row q-gutter-sm justify-end">
-              <q-btn unelevated no-caps color="primary" padding="sm md" :label="t('Adicionar')" :loading="adding" @click="addStudent" />
-              <q-btn outline no-caps color="primary" padding="sm md" :label="t('Nova conta')" @click="openCreateDialog" />
+              <q-btn unelevated no-caps color="positive" padding="sm md" :label="t('Adicionar')" :loading="adding" @click="addStudent" />
+              <q-btn unelevated outline no-caps color="positive" padding="sm md" :label="t('Nova conta')" @click="openCreateDialog" />
             </div>
           </div>
         </div>
@@ -54,7 +54,7 @@
 
           <q-card-actions align="right" class="q-pa-md">
             <q-btn flat no-caps color="grey-7" :label="t('Cancelar')" :disable="creating" v-close-popup />
-            <q-btn unelevated no-caps color="primary" :label="t('Criar conta e associar')" :loading="creating" @click="createStudentAccount" />
+            <q-btn unelevated no-caps color="positive" :label="t('Criar conta e associar')" :loading="creating" @click="createStudentAccount" />
           </q-card-actions>
         </q-card>
       </q-dialog>

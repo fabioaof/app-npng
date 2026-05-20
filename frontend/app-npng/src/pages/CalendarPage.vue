@@ -9,9 +9,9 @@
           <q-btn
             no-caps
             rounded
-            :unelevated="!isAllAppointments"
+            unelevated
             :outline="isAllAppointments"
-            :color="isAllAppointments ? 'accent' : 'primary'"
+            :color="isAllAppointments ? 'accent' : 'positive'"
             :icon="isAllAppointments ? 'person' : 'filter_alt_off'"
             :label="isAllAppointments ? 'Voltar ao aluno' : 'Ver todas as marcações'"
             :disable="isAllAppointments && lastFilteredStudentId == null"
@@ -115,9 +115,10 @@
 
       <q-page-sticky position="bottom-right" :offset="fabOffset">
         <q-btn
+          unelevated
           fab
           icon="add"
-          color="primary"
+          color="positive"
           class="calendar-page__fab"
           @click="onClickFab"
           aria-label="Novo treino"
@@ -159,7 +160,7 @@
               unelevated
               no-caps
               rounded
-              color="primary"
+              color="positive"
               label="Continuar"
               :disable="workoutDialogStudentId == null"
               @click="confirmStudentAndGoNewWorkout"
@@ -201,7 +202,7 @@
               unelevated
               no-caps
               rounded
-              color="primary"
+              color="positive"
               label="Continuar"
               :disable="dialogStudentId == null"
               @click="confirmStudentAndOpenCreate"
@@ -258,7 +259,7 @@
               unelevated
               no-caps
               rounded
-              color="primary"
+              color="positive"
               label="Criar"
               :loading="savingAppointment"
               :disable="!createScheduledLocal"
@@ -306,7 +307,7 @@
               unelevated
               no-caps
               rounded
-              color="primary"
+              color="positive"
               label="Converter em treino"
               :disable="selectedAppointment?.status !== 'scheduled'"
               @click="goConvertSelected"
@@ -968,9 +969,5 @@ onMounted(() => {
   color: var(--app-text-muted);
   padding: 12px 0 8px;
   text-align: center;
-}
-
-.calendar-page__fab {
-  box-shadow: 0 8px 28px rgba(125, 148, 137, 0.38);
 }
 </style>
