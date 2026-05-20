@@ -152,8 +152,8 @@
                     dense
                     round
                     icon="delete"
-                    color="grey-7"
                     size="sm"
+                    class="workout-block__remove-exercise"
                     :disable="block.sets.length <= 1"
                     aria-label="Remover set"
                     @click="removeSetFromBlock(block, idx)"
