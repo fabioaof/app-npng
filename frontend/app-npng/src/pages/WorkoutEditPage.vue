@@ -119,10 +119,10 @@
                   flat
                   dense
                   no-caps
-                  color="grey-7"
                   icon="close"
                   label="Remover"
                   rounded
+                  class="workout-block__remove-exercise"
                   @click="removeBlock(bIdx)"
                 />
               </div>
@@ -152,8 +152,8 @@
                     dense
                     round
                     icon="delete"
-                    color="grey-7"
                     size="sm"
+                    class="workout-block__remove-exercise"
                     :disable="block.sets.length <= 1"
                     aria-label="Remover set"
                     @click="removeSetFromBlock(block, idx)"
@@ -509,9 +509,9 @@ function exerciseName (exerciseId) {
   return ex?.name ?? ''
 }
 
-function defaultSetRow () {
+function defaultSetRow (previousSet = null) {
   return {
-    weight_kg: 0,
+    weight_kg: previousSet?.weight_kg ?? 0,
     reps: 10,
     rest_seconds: 90,
   }
@@ -554,7 +554,8 @@ function selectBlockForAddSet (block) {
 }
 
 function addSetToBlock (block) {
-  block.sets.push(defaultSetRow())
+  const previousSet = block.sets.length > 0 ? block.sets[block.sets.length - 1] : null
+  block.sets.push(defaultSetRow(previousSet))
 }
 
 function addSetToSelectedBlock () {
@@ -956,6 +957,10 @@ function goBack () {
 
 .workout-block__head-history {
   flex-shrink: 0;
+}
+
+.workout-block__remove-exercise {
+  color: #b8877a;
 }
 
 .workout-edit-form {
