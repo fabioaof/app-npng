@@ -121,7 +121,7 @@
             </div>
           </q-card>
         </div>
-        <div class="col-12 col-md-6">
+        <!-- <div class="col-12 col-md-6">
           <q-card flat class="app-card q-pa-md app-chart-card">
             <div class="text-subtitle2 text-weight-bold q-mb-sm">{{ t('Peso por sessão') }}</div>
             <div class="row q-col-gutter-sm q-mb-md items-end">
@@ -148,7 +148,7 @@
               {{ t('Sem dados para este exercício.') }}
             </div>
           </q-card>
-        </div>
+        </div> -->
       </div>
     </div>
   </q-page>
@@ -192,9 +192,9 @@ let volChart
 let exChart
 let sparkChart
 
-const exerciseOptions = computed(() =>
-  exercises.value.map((e) => ({ label: e.name, value: e.id })),
-)
+// const exerciseOptions = computed(() =>
+//   exercises.value.map((e) => ({ label: e.name, value: e.id })),
+// )
 
 const weeklyChartWeeks = computed(() => Math.min(weekly.value.length, 8))
 
