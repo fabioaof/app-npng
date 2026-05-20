@@ -223,6 +223,7 @@
         <div class="app-page-inner workout-edit-sticky-actions__inner">
           <div class="workout-edit-sticky-toolbar row no-wrap items-center">
             <q-btn
+              unelevated
               outline
               dense
               no-caps
@@ -236,6 +237,7 @@
               @click="openExerciseDialog"
             />
             <q-btn
+              unelevated
               outline
               dense
               no-caps
@@ -264,7 +266,7 @@
               unelevated
               dense
               no-caps
-              color="primary"
+              color="positive"
               padding="xs sm"
               rounded
               :label="saveWorkoutLabel"
@@ -313,7 +315,7 @@
             unelevated
             no-caps
             rounded
-            color="primary"
+            color="positive"
             label="Adicionar"
             :disable="dialogExerciseId == null"
             @click="confirmAddExerciseFromDialog"

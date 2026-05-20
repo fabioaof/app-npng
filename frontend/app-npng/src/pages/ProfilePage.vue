@@ -29,7 +29,7 @@
         <q-input v-model.number="weightKg" type="number" label="Peso (kg)" outlined dense step="0.1" min="0" />
         <q-input v-model.number="heightCm" type="number" label="Altura (cm)" outlined dense step="0.1" min="0" />
         <div class="row justify-end">
-          <q-btn type="submit" unelevated no-caps color="primary" padding="sm md" label="Guardar" :loading="saving" />
+          <q-btn type="submit" unelevated no-caps color="positive" padding="sm md" label="Guardar" :loading="saving" />
         </div>
         <q-separator class="q-my-lg" />
         <q-btn

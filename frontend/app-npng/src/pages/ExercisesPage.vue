@@ -30,7 +30,7 @@
           </div>
         </div>
         <div class="row justify-end">
-          <q-btn class="q-mt-md" unelevated no-caps color="primary" padding="sm md" :label="t('Criar exercício')" @click="addExercise" :loading="loadingE" />
+          <q-btn class="q-mt-md" unelevated no-caps color="positive" padding="sm md" :label="t('Criar exercício')" @click="addExercise" :loading="loadingE" />
         </div>
       </q-card>
       <q-list separator class="app-list">

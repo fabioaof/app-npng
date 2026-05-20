@@ -24,7 +24,7 @@
           type="submit"
           unelevated
           no-caps
-          color="primary"
+          color="positive"
           class="full-width"
           padding="sm md"
           label="Entrar"
