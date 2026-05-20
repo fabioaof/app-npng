@@ -509,9 +509,9 @@ function exerciseName (exerciseId) {
   return ex?.name ?? ''
 }
 
-function defaultSetRow () {
+function defaultSetRow (previousSet = null) {
   return {
-    weight_kg: 0,
+    weight_kg: previousSet?.weight_kg ?? 0,
     reps: 10,
     rest_seconds: 90,
   }
@@ -554,7 +554,8 @@ function selectBlockForAddSet (block) {
 }
 
 function addSetToBlock (block) {
-  block.sets.push(defaultSetRow())
+  const previousSet = block.sets.length > 0 ? block.sets[block.sets.length - 1] : null
+  block.sets.push(defaultSetRow(previousSet))
 }
 
 function addSetToSelectedBlock () {
