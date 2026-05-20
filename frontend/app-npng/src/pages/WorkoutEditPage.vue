@@ -115,13 +115,13 @@
                   @click="openExerciseHistory(block)"
                 />
                 <q-btn
-                  flat
+                  unelevated
+                  rounded
                   dense
                   no-caps
-                  color="grey-7"
                   icon="close"
                   label="Remover"
-                  rounded
+                  class="delete-exercise-btn"
                   @click="removeBlock(bIdx)"
                 />
               </div>
@@ -151,7 +151,7 @@
                     dense
                     round
                     icon="delete"
-                    color="grey-7"
+                    color="negative"
                     size="sm"
                     :disable="block.sets.length <= 1"
                     aria-label="Remover set"
@@ -909,6 +909,11 @@ function goBack () {
 .workout-edit-top-delete {
   flex-shrink: 0;
   font-size: 0.8rem;
+  background: #b8877a !important;
+  color: #fff !important;
+}
+
+.delete-exercise-btn {
   background: #b8877a !important;
   color: #fff !important;
 }
