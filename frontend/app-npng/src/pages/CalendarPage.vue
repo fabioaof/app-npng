@@ -624,10 +624,18 @@ function deleteSession (sessionId) {
   Dialog.create({
     title: 'Apagar treino',
     message: 'Tem a certeza?',
-    cancel: {
-      label: 'Cancelar',
-      color: 'negative',
+    ok: {
+      label: t('Confirmar'),
+      color: 'positive',
+      unelevated: true,
+      noCaps: true
     },
+    cancel: {
+      label: t('Cancelar'),
+      color: 'negative',
+      unelevated: true,
+      noCaps: true
+    }
   }).onOk(async () => {
     try {
       await api.delete(`/workouts/sessions/${sessionId}`)

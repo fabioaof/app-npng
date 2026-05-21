@@ -252,11 +252,11 @@
             />
             <q-space />
             <q-btn
-              flat
+              unelevated
               dense
               no-caps
               rounded
-              color="grey-8"
+              color="negative"
               label="Cancelar"
               padding="xs sm"
               class="workout-edit-sticky-toolbar__text"
@@ -522,7 +522,7 @@ function openExerciseDialog () {
   exerciseDialogOpen.value = true
 }
 
-function confirmAddExerciseFromDialog () {
+async function confirmAddExerciseFromDialog () {
   if (dialogExerciseId.value == null) {
     Notify.create({
       type: 'warning',
@@ -536,6 +536,7 @@ function confirmAddExerciseFromDialog () {
   selectedBlockIdForSet.value = block.id
   exerciseDialogOpen.value = false
   dialogExerciseId.value = null
+  await saveWorkout()
 }
 
 function syncSelectedBlockIdForSet () {
@@ -554,10 +555,15 @@ function selectBlockForAddSet (block) {
 }
 
 function addSetToBlock (block) {
-  block.sets.push(defaultSetRow())
+  const prev = block.sets[block.sets.length - 1]
+  const row = defaultSetRow()
+  if (prev != null) {
+    row.weight_kg = prev.weight_kg
+  }
+  block.sets.push(row)
 }
 
-function addSetToSelectedBlock () {
+async function addSetToSelectedBlock () {
   if (!blocks.value.length) {
     Notify.create({
       type: 'info',
@@ -577,6 +583,7 @@ function addSetToSelectedBlock () {
     return
   }
   addSetToBlock(block)
+  await saveWorkout()
 }
 
 function removeSetFromBlock (block, idx) {
@@ -774,18 +781,20 @@ function submitWorkoutForm () {
   workoutFormRef.value?.submit()
 }
 
-async function onSave () {
+async function saveWorkout ({ navigateAfter = false } = {}) {
   if (auth.isProfessional && !prof.selectedStudentId && isNew.value) {
-    return
+    return false
   }
   const payloadSets = flattenBlocksToPayload()
   if (!payloadSets.length && !auth.isProfessional) {
-    Notify.create({
-      type: 'warning',
-      message: 'Adiciona pelo menos um exercício e um set antes de guardar.',
-      position: 'top',
-    })
-    return
+    if (navigateAfter) {
+      Notify.create({
+        type: 'warning',
+        message: 'Adiciona pelo menos um exercício e um set antes de guardar.',
+        position: 'top',
+      })
+    }
+    return false
   }
   saving.value = true
   try {
@@ -800,25 +809,47 @@ async function onSave () {
     }
     if (isNew.value) {
       const { data: created } = await api.post('/workouts/sessions', payload)
+      sessionOwnerUserId.value = created.user_id ?? null
       if (linkedAppointmentId.value) {
         await api.post(`/appointments/${linkedAppointmentId.value}/convert`, { session_id: created.id })
+        linkedAppointmentId.value = null
+      }
+      if (navigateAfter) {
+        router.push({ name: 'workouts' })
+      } else {
+        await router.replace({ name: 'workout-detail', params: { id: String(created.id) } })
       }
     } else {
       await api.patch(`/workouts/sessions/${sessionId.value}`, payload)
+      if (navigateAfter) {
+        router.push({ name: 'workouts' })
+      }
     }
-    router.push({ name: 'workouts' })
+    return true
   } finally {
     saving.value = false
   }
+}
+
+async function onSave () {
+  await saveWorkout({ navigateAfter: true })
 }
 
 function onDelete () {
   Dialog.create({
     title: 'Apagar treino',
     message: 'Tem a certeza?',
+    ok: {
+      label: t('Confirmar'),
+      color: 'positive',
+      unelevated: true,
+      noCaps: true
+    },
     cancel: {
       label: t('Cancelar'),
       color: 'negative',
+      unelevated: true,
+      noCaps: true
     }
   }).onOk(async () => {
     await api.delete(`/workouts/sessions/${sessionId.value}`)
